@@ -5,15 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/lib/tailwindcss.js"></script>
     <script type="importmap">
         {
             "imports": {
-                "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+                "vue": "/js/lib/vue.esm-browser.js"
             }
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         [v-cloak] { display: none !important; }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
@@ -78,7 +77,7 @@
         }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex bg-gray-50 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]">
+<body class="h-screen overflow-hidden flex bg-gray-50">
     <div id="app" v-cloak class="flex w-full h-full relative">
         <!-- Mobile Overlay -->
         <div v-if="isSidebarOpen" @click="isSidebarOpen = false" class="fixed inset-0 bg-gray-900/50 z-20 lg:hidden backdrop-blur-sm transition-opacity"></div>

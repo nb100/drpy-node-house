@@ -5,17 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>去中心化文件存储</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+    <script src="/js/lib/tailwindcss.js"></script>
     <script type="importmap">
         {
             "imports": {
-                "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js",
-                "marked": "https://unpkg.com/marked@12.0.0/lib/marked.esm.js",
-                "dompurify": "https://unpkg.com/dompurify@3.0.9/dist/purify.es.mjs"
+                "vue": "/js/lib/vue.esm-browser.js",
+                "marked": "/js/lib/marked.esm.js",
+                "dompurify": "/js/lib/purify.es.mjs"
             }
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         [v-cloak] { display: none !important; }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
@@ -110,7 +109,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen bg-[url('https://grainy-gradients.vercel.app/noise.svg')]">
+<body class="bg-gray-50 min-h-screen">
     <div id="app" v-cloak class="container mx-auto px-2 py-2 max-w-6xl relative flex flex-col lg:h-screen lg:p-4 lg:block" :class="{'fixed inset-0 z-0 h-dvh flex flex-col overflow-hidden lg:static lg:h-auto lg:block lg:overflow-visible': currentView !== 'files'}">
         <!-- Global Loading State -->
         <div v-if="!isAppReady" class="absolute inset-0 flex items-center justify-center z-50">
