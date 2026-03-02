@@ -40,7 +40,14 @@ export const DEFAULT_SETTINGS = {
     site_icp: '京ICP备88888888号-1',
     
     // Admin Features
-    package_download_mode: 'essential', // 'essential' or 'all'
+    package_download_mode: 'essential', // 'essential' or 'all',
+    download_protocols: JSON.stringify({
+        "海阔视界": "hiker://sub?lang={{lang}}&url={{url}}",
+        "影图": "yt://sub?lang={{lang}}&url={{url}}",
+        "皮卡丘": "peekpili://sub?lang={{lang}}&url={{url}}",
+        "影视+": "vodplus://sub?lang={{lang}}&url={{url}}",
+        "ZYFUN": "zyfun://sub?lang={{lang}}&url={{url}}"
+    }, null, 2),
     
     // Notifications
     notification_limit: 10,

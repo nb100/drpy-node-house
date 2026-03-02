@@ -86,10 +86,10 @@ export default async function (fastify, opts) {
     }
   });
 
-  // Update user role/status
+  // Update user role/status/profile
   fastify.put('/users/:id', { onRequest: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
-    const { role, status } = request.body;
+    const { role, status, nickname, qq, email, phone, download_preference } = request.body;
     
     if (role && !['admin', 'user', 'super_admin'].includes(role)) {
       return reply.code(400).send({ error: 'Invalid role' });
@@ -98,16 +98,23 @@ export default async function (fastify, opts) {
       return reply.code(400).send({ error: 'Invalid status' });
     }
 
+    // Check nickname uniqueness if provided
+    if (nickname) {
+        const check = db.prepare('SELECT id FROM users WHERE nickname = ? AND id != ?');
+        if (check.get(nickname, id)) {
+            return reply.code(409).send({ error: 'Nickname already exists' });
+        }
+    }
+
     const updates = [];
     const params = [];
-    if (role) {
-      updates.push('role = ?');
-      params.push(role);
-    }
-    if (status) {
-      updates.push('status = ?');
-      params.push(status);
-    }
+    if (role) { updates.push('role = ?'); params.push(role); }
+    if (status) { updates.push('status = ?'); params.push(status); }
+    if (nickname !== undefined) { updates.push('nickname = ?'); params.push(nickname); }
+    if (qq !== undefined) { updates.push('qq = ?'); params.push(qq); }
+    if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+    if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+    if (download_preference !== undefined) { updates.push('download_preference = ?'); params.push(download_preference); }
 
     if (updates.length === 0) {
       return reply.code(400).send({ error: 'No updates provided' });

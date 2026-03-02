@@ -1,5 +1,6 @@
 import db from '../db.js';
 import bcrypt from 'bcryptjs';
+import { DEFAULT_SETTINGS } from '../config.js';
 
 export async function initSuperAdmin() {
   const stmt = db.prepare('SELECT count(*) as count FROM users');
@@ -25,16 +26,7 @@ export async function getUploadConfig() {
   const stmt = db.prepare("SELECT key, value FROM settings");
   const results = stmt.all();
 
-  const config = {
-    allowed_extensions: '.json,.txt,.py,.php,.js,.m3u',
-    max_file_size: 204800,
-    allowed_tags: 'ds,dr2,cat,php,hipy,优,失效',
-    anonymous_upload: 'false',
-    anonymous_preview: 'false',
-    anonymous_download: 'false',
-    site_copyright: 'Copyright © 2026 Drpy Node House. All Rights Reserved.',
-    site_icp: '京ICP备88888888号-1'
-  };
+  const config = { ...DEFAULT_SETTINGS };
 
   results.forEach(row => {
     if (row.key === 'max_file_size') {
@@ -44,7 +36,16 @@ export async function getUploadConfig() {
     }
   });
 
-  return config;
+  // Filter out sensitive settings if any (though these are public config mostly)
+  // We might want to exclude notification templates from public config if not needed, but frontend admin needs them?
+  // Frontend admin fetches /api/admin/settings which is protected.
+  // /api/auth/policy is public.
+  // Let's exclude notification_templates from public config.
+  const publicConfig = { ...config };
+  delete publicConfig.notification_templates;
+  delete publicConfig.registration_policy; // This is returned separately in getRegistrationPolicy but fine to keep consistent
+
+  return publicConfig;
 }
 
 export async function registerUser(username, password, inviteCode = null, reason = null) {
@@ -133,8 +134,41 @@ export async function changePassword(userId, oldPassword, newPassword) {
 }
 
 export async function getUserById(userId) {
-  const stmt = db.prepare('SELECT id, username, role, status FROM users WHERE id = ?');
+  const stmt = db.prepare('SELECT id, username, role, status, nickname, qq, email, phone, download_preference FROM users WHERE id = ?');
   return stmt.get(userId);
+}
+
+export async function updateUserProfile(userId, { nickname, qq, email, phone, download_preference }) {
+  console.log(`[updateUserProfile] Updating user ${userId}:`, { nickname, qq, email, phone, download_preference });
+
+  // Check nickname uniqueness if changed
+  if (nickname) {
+    const check = db.prepare('SELECT id FROM users WHERE nickname = ? AND id != ?');
+    if (check.get(nickname, userId)) {
+      throw new Error('Nickname already exists');
+    }
+  }
+
+  const updates = [];
+  const params = [];
+
+  if (nickname !== undefined) { updates.push('nickname = ?'); params.push(nickname); }
+  if (qq !== undefined) { updates.push('qq = ?'); params.push(qq); }
+  if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+  if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+  if (download_preference !== undefined) { updates.push('download_preference = ?'); params.push(download_preference); }
+
+  console.log('[updateUserProfile] SQL Updates:', updates);
+  console.log('[updateUserProfile] SQL Params:', params);
+
+  if (updates.length > 0) {
+    params.push(userId);
+    const stmt = db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`);
+    const result = stmt.run(...params);
+    console.log('[updateUserProfile] DB Result:', result);
+  }
+  
+  return getUserById(userId);
 }
 
 export async function resetPassword(userId, newPassword) {

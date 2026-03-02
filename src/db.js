@@ -100,6 +100,30 @@ try {
 } catch (e) {}
 
 try {
+  db.run("ALTER TABLE users ADD COLUMN nickname TEXT");
+} catch (e) {}
+
+try {
+  db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nickname ON users(nickname)");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE users ADD COLUMN qq TEXT");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE users ADD COLUMN email TEXT");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE users ADD COLUMN phone TEXT");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE users ADD COLUMN download_preference TEXT DEFAULT 'default'");
+} catch (e) {}
+
+try {
   db.run("ALTER TABLE users ADD COLUMN reason TEXT");
 } catch (e) {}
 

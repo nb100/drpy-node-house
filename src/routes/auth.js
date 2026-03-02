@@ -1,4 +1,4 @@
-import { registerUser, loginUser, changePassword, getRegistrationPolicy, getUploadConfig, getUserById } from '../services/authService.js';
+import { registerUser, loginUser, changePassword, getRegistrationPolicy, getUploadConfig, getUserById, updateUserProfile } from '../services/authService.js';
 import { notifyAdminsTemplate } from '../services/notificationService.js';
 
 export default async function (fastify, opts) {
@@ -76,6 +76,22 @@ export default async function (fastify, opts) {
       return reply.code(404).send({ error: 'User not found' });
     }
     return user;
+  });
+
+  fastify.put('/me', {
+    onRequest: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      console.log(`[PUT /me] User ${request.user.id} update payload:`, request.body);
+      const updatedUser = await updateUserProfile(request.user.id, request.body);
+      return updatedUser;
+    } catch (err) {
+      if (err.message === 'Nickname already exists') {
+        return reply.code(409).send({ error: err.message });
+      }
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to update profile' });
+    }
   });
 
   fastify.post('/change-password', {

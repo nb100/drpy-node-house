@@ -80,7 +80,7 @@ export function listFiles(userId = null, page = 1, limit = 10, search = '', tag 
 
   // Fetch paginated items
   const query = `
-    SELECT files.*, users.username 
+    SELECT files.*, users.username, users.nickname 
     FROM files 
     LEFT JOIN users ON files.user_id = users.id 
     ${whereClause}

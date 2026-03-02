@@ -59,10 +59,24 @@ createApp({
         const invites = ref([]);
         const notification = ref({ show: false, message: '', type: 'success' });
         const isSidebarOpen = ref(false);
+
+        const protocolOptions = computed(() => {
+            if (!settings.value || !settings.value.download_protocols) return [];
+            try {
+                const protocols = typeof settings.value.download_protocols === 'string' 
+                    ? JSON.parse(settings.value.download_protocols) 
+                    : settings.value.download_protocols;
+                return Object.keys(protocols);
+            } catch (e) {
+                return [];
+            }
+        });
         
         // UI State
         const loading = ref(false);
         const showInviteModal = ref(false);
+        const showUserDetailsModal = ref(false);
+        const selectedUser = ref({});
         const inviteForm = ref({ max_uses: 1 });
 
         const formatSize = (bytes) => {
@@ -168,6 +182,16 @@ createApp({
                 } catch (e) {
                     console.error('Failed to parse templates', e);
                 }
+                
+                // Ensure download_protocols is formatted
+                try {
+                    if (settings.value.download_protocols && typeof settings.value.download_protocols === 'string') {
+                        const parsed = JSON.parse(settings.value.download_protocols);
+                        settings.value.download_protocols = JSON.stringify(parsed, null, 2);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse protocols', e);
+                }
             } catch (e) {
                 console.error('Failed to fetch settings', e);
             }
@@ -194,6 +218,42 @@ createApp({
                     fetchUsers();
                 } else {
                     showNotification('更新失败', 'error');
+                }
+            } catch (e) {
+                showNotification('更新失败', 'error');
+            }
+        };
+
+        const viewUserDetails = (u) => {
+            selectedUser.value = { ...u };
+            if (!selectedUser.value.download_preference) {
+                selectedUser.value.download_preference = 'default';
+            }
+            showUserDetailsModal.value = true;
+        };
+
+        const saveUserDetails = async () => {
+            try {
+                // Prepare payload
+                const payload = {};
+                if (selectedUser.value.nickname !== undefined) payload.nickname = selectedUser.value.nickname;
+                if (selectedUser.value.qq !== undefined) payload.qq = selectedUser.value.qq;
+                if (selectedUser.value.email !== undefined) payload.email = selectedUser.value.email;
+                if (selectedUser.value.phone !== undefined) payload.phone = selectedUser.value.phone;
+                if (selectedUser.value.download_preference !== undefined) payload.download_preference = selectedUser.value.download_preference;
+
+                const res = await fetchWithAuth(`/api/admin/users/${selectedUser.value.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    showNotification('用户信息已更新');
+                    showUserDetailsModal.value = false;
+                    fetchUsers();
+                } else {
+                    const data = await res.json();
+                    showNotification(data.error || '更新失败', 'error');
                 }
             } catch (e) {
                 showNotification('更新失败', 'error');
@@ -447,6 +507,7 @@ createApp({
             // Initial fetch based on current view
             fetchUsers();
             fetchSystemStatus();
+            fetchSettings();
         });
 
         return {
@@ -459,8 +520,13 @@ createApp({
             notification,
             loading,
             showInviteModal,
+            showUserDetailsModal,
+            selectedUser,
             inviteForm,
+            protocolOptions,
             updateUserStatus,
+            viewUserDetails,
+            saveUserDetails,
             updateUserRole,
             deleteUser,
             resetUserPassword,

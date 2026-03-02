@@ -164,6 +164,9 @@ createApp({
             if (token.value) {
                 headers['Authorization'] = `Bearer ${token.value}`;
             }
+            if (options.body && !headers['Content-Type']) {
+                headers['Content-Type'] = 'application/json';
+            }
             const res = await fetch(url, { ...options, headers });
             if (res.status === 401) {
                 logout();
@@ -655,8 +658,80 @@ createApp({
             return new Date(timestamp * 1000).toLocaleString(lang.value === 'zh' ? 'zh-CN' : 'en-US');
         };
 
-        const copyToClipboard = (text) => {
-            navigator.clipboard.writeText(text);
+        const copyToClipboard = async (text) => {
+            try {
+                await navigator.clipboard.writeText(text);
+                alert('已复制到剪贴板');
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+            }
+        };
+
+        // User Profile
+        const showProfileModal = ref(false);
+        const userProfileForm = ref({
+            nickname: '',
+            qq: '',
+            email: '',
+            phone: '',
+            download_preference: 'default'
+        });
+        const profileError = ref('');
+
+        const protocolOptions = computed(() => {
+            if (!uploadConfig.value || !uploadConfig.value.download_protocols) return [];
+            try {
+                const protocols = typeof uploadConfig.value.download_protocols === 'string' 
+                    ? JSON.parse(uploadConfig.value.download_protocols) 
+                    : uploadConfig.value.download_protocols;
+                return Object.keys(protocols);
+            } catch (e) {
+                return [];
+            }
+        });
+
+        const openProfileModal = () => {
+            if (!user.value) return;
+            userProfileForm.value = {
+                nickname: user.value.nickname || '',
+                qq: user.value.qq || '',
+                email: user.value.email || '',
+                phone: user.value.phone || '',
+                download_preference: user.value.download_preference || 'default'
+            };
+            profileError.value = '';
+            showProfileModal.value = true;
+        };
+
+        const updateProfile = async () => {
+            profileError.value = '';
+            try {
+                // Prepare payload - only send defined fields
+                const payload = {};
+                if (userProfileForm.value.nickname !== undefined) payload.nickname = userProfileForm.value.nickname;
+                if (userProfileForm.value.qq !== undefined) payload.qq = userProfileForm.value.qq;
+                if (userProfileForm.value.email !== undefined) payload.email = userProfileForm.value.email;
+                if (userProfileForm.value.phone !== undefined) payload.phone = userProfileForm.value.phone;
+                if (userProfileForm.value.download_preference !== undefined) payload.download_preference = userProfileForm.value.download_preference;
+
+                const res = await fetchWithAuth('/api/auth/me', {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    user.value = data; // Update local user state
+                    showProfileModal.value = false;
+                    alert(t.value.profileSaved);
+                    // Refresh file list to update nickname display
+                    fetchFiles();
+                } else {
+                    profileError.value = data.error === 'Nickname already exists' ? t.value.nicknameExists : (data.error || 'Update failed');
+                }
+            } catch (e) {
+                console.error(e);
+                profileError.value = 'Update failed';
+            }
         };
 
         const getDownloadUrl = (cid, preview = false) => {
@@ -669,6 +744,53 @@ createApp({
                 url += `?${params.join('&')}`;
             }
             return url;
+        };
+
+        const getFileDownloadUrl = (file) => {
+            const directUrl = getDownloadUrl(file.cid);
+            
+            if (!user.value || !user.value.download_preference || user.value.download_preference === 'default') {
+                return directUrl;
+            }
+            
+            // Check if protocol exists in config
+            if (!uploadConfig.value || !uploadConfig.value.download_protocols) return directUrl;
+            
+            let protocols = {};
+            try {
+                protocols = typeof uploadConfig.value.download_protocols === 'string' 
+                    ? JSON.parse(uploadConfig.value.download_protocols) 
+                    : uploadConfig.value.download_protocols;
+            } catch (e) {
+                return directUrl;
+            }
+            
+            const template = protocols[user.value.download_preference];
+            if (!template) return directUrl;
+            
+            // Calculate lang
+            let lang = 'json'; // default fallback
+            const ext = file.filename.split('.').pop().toLowerCase();
+            const tags = file.tags ? file.tags.split(',').map(t => t.trim()) : [];
+            
+            if (['json', 'txt', 'm3u'].includes(ext)) {
+               lang = 'json';
+            } else if (ext === 'js') {
+               if (tags.includes('dr2')) {
+                  lang = 'dr2';
+               } else {
+                  lang = 'ds';
+               }
+            } else if (ext === 'php') {
+               lang = 'php';
+            } else if (ext === 'py') {
+               lang = 'hipy';
+            }
+            
+            const fullUrl = window.location.origin + directUrl;
+            // The template expects {{url}} to be replaced by the download link
+            // And {{lang}} by the calculated lang
+            return template.replace('{{lang}}', lang).replace('{{url}}', fullUrl);
         };
 
         onMounted(async () => {
@@ -753,7 +875,14 @@ createApp({
             allNotificationsLoading,
             allNotificationsHasMore,
             openAllNotifications,
-            fetchAllNotifications
+            fetchAllNotifications,
+            showProfileModal,
+            userProfileForm,
+            profileError,
+            protocolOptions,
+            openProfileModal,
+            updateProfile,
+            getFileDownloadUrl
         };
     }
 }).mount('#app');
