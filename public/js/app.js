@@ -110,6 +110,7 @@ createApp({
                 fetchTopics();
             } else if (view === 'chat') {
                 connectChat();
+                scrollToBottom();
             }
         };
 
