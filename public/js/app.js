@@ -663,11 +663,40 @@ createApp({
         };
 
         const copyToClipboard = async (text) => {
+            if (!text) return;
             try {
-                await navigator.clipboard.writeText(text);
-                alert('已复制到剪贴板');
+                // Try modern API first
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    alert('已复制到剪贴板');
+                } else {
+                    // Fallback for older browsers / webviews without clipboard API
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    
+                    // Ensure textarea is not visible but part of DOM
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    textArea.style.top = "0";
+                    document.body.appendChild(textArea);
+                    
+                    textArea.focus();
+                    textArea.select();
+                    
+                    try {
+                        const successful = document.execCommand('copy');
+                        const msg = successful ? '已复制到剪贴板' : '复制失败';
+                        alert(msg);
+                    } catch (err) {
+                        console.error('Fallback copy failed', err);
+                        alert('复制失败');
+                    }
+                    
+                    document.body.removeChild(textArea);
+                }
             } catch (err) {
                 console.error('Failed to copy: ', err);
+                alert('复制失败');
             }
         };
 

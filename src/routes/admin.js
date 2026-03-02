@@ -53,7 +53,7 @@ export default async function (fastify, opts) {
       const offset = (page - 1) * limit;
 
       let countSql = 'SELECT count(*) as total FROM users';
-      let dataSql = 'SELECT id, username, role, status, reason, created_at FROM users';
+      let dataSql = 'SELECT id, username, role, status, reason, created_at, nickname, qq, email, phone, download_preference FROM users';
       const countParams = [];
       const dataParams = [];
 
