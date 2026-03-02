@@ -127,6 +127,10 @@ try {
   db.run("ALTER TABLE users ADD COLUMN reason TEXT");
 } catch (e) {}
 
+try {
+  db.run("ALTER TABLE users ADD COLUMN registration_ip TEXT");
+} catch (e) {}
+
 // Seed default settings
 for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
   db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', key, value);

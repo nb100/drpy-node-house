@@ -48,12 +48,30 @@ export async function getUploadConfig() {
   return publicConfig;
 }
 
-export async function registerUser(username, password, inviteCode = null, reason = null) {
+export async function registerUser(username, password, inviteCode = null, reason = null, ip = null) {
   // 1. Check Registration Policy
   const policy = await getRegistrationPolicy();
 
   if (policy === 'closed') {
     throw new Error('Registration is currently closed');
+  }
+
+  // Check IP limit (Anti-spam)
+  if (ip) {
+    // Get limit from settings or default
+    const settingsStmt = db.prepare("SELECT value FROM settings WHERE key = 'registration_ip_limit'");
+    const settingsResult = settingsStmt.get();
+    const limit = settingsResult ? parseInt(settingsResult.value, 10) : DEFAULT_SETTINGS.registration_ip_limit;
+    
+    const window = 24 * 60 * 60; // 24 hours in seconds
+    const timeThreshold = Math.floor(Date.now() / 1000) - window;
+    
+    const countStmt = db.prepare('SELECT count(*) as count FROM users WHERE registration_ip = ? AND created_at > ?');
+    const result = countStmt.get(ip, timeThreshold);
+    
+    if (result.count >= limit) {
+      throw new Error(`Registration limit exceeded. Max ${limit} accounts per 24 hours from this IP.`);
+    }
   }
 
   // 2. Check Invite Code if required
@@ -87,10 +105,10 @@ export async function registerUser(username, password, inviteCode = null, reason
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const stmt = db.prepare('INSERT INTO users (username, password, role, status, reason) VALUES (?, ?, ?, ?, ?)');
+  const stmt = db.prepare('INSERT INTO users (username, password, role, status, reason, registration_ip) VALUES (?, ?, ?, ?, ?, ?)');
 
   // Default role is 'user'
-  const info = stmt.run(username, hashedPassword, 'user', initialStatus, reason);
+  const info = stmt.run(username, hashedPassword, 'user', initialStatus, reason, ip);
   return { id: info.lastInsertRowid, username, role: 'user', status: initialStatus };
 }
 

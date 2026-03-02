@@ -2,8 +2,9 @@ import Fastify from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import fastifyCors from '@fastify/cors';
+import fastifyRateLimit from '@fastify/rate-limit';
 import path from 'path';
-import config from './config.js';
+import config, { DEFAULT_SETTINGS } from './config.js';
 import { initHelia } from './ipfs.js';
 import { initSuperAdmin } from './services/authService.js';
 import db from './db.js'; // Ensures DB is initialized
@@ -23,6 +24,17 @@ const fastify = Fastify({
 // Register plugins
 fastify.register(fastifyCors, { 
   origin: true
+});
+
+// Get rate limit from settings
+const rateLimitStmt = db.prepare("SELECT value FROM settings WHERE key = 'rate_limit_max'");
+const rateLimitResult = rateLimitStmt.get();
+const rateLimitMax = rateLimitResult ? parseInt(rateLimitResult.value, 10) : (DEFAULT_SETTINGS.rate_limit_max || 100);
+
+fastify.register(fastifyRateLimit, {
+  max: rateLimitMax,
+  timeWindow: '1 minute', // per minute
+  // Allow whitelisting if needed in future
 });
 
 fastify.register(fastifyJwt, {

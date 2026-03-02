@@ -17,7 +17,7 @@ export default async function (fastify, opts) {
     }
 
     try {
-      const user = await registerUser(username, password, inviteCode, reason);
+      const user = await registerUser(username, password, inviteCode, reason, request.ip);
       
       // Notify admins if pending approval
       if (user.status === 'pending') {
@@ -41,6 +41,9 @@ export default async function (fastify, opts) {
       }
       if (err.message === 'Application reason is required') {
         return reply.code(400).send({ error: err.message });
+      }
+      if (err.message.includes('Registration limit exceeded')) {
+        return reply.code(429).send({ error: err.message });
       }
       request.log.error(err);
       return reply.code(500).send({ error: 'Registration failed' });
