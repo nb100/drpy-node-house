@@ -43,6 +43,7 @@ export default async function (fastify, opts) {
     // Given uploadFile reads into buffer, let's pass the size limit to it.
 
     const isPublic = request.query.is_public !== 'false'; // Default true
+    const tags = request.query.tags || '';
     
     if (!isPublic && !user) {
       data.file.resume();
@@ -50,7 +51,7 @@ export default async function (fastify, opts) {
     }
 
     try {
-      const result = await uploadFile(data, user ? user.id : null, isPublic, config.max_file_size);
+      const result = await uploadFile(data, user ? user.id : null, isPublic, config.max_file_size, tags);
       return result;
     } catch (err) {
       request.log.error(err);

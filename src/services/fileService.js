@@ -2,7 +2,7 @@ import { getHelia } from '../ipfs.js';
 import db from '../db.js';
 import { CID } from 'multiformats/cid';
 
-export async function uploadFile(file, userId = null, isPublic = true, maxSize = 0) {
+export async function uploadFile(file, userId = null, isPublic = true, maxSize = 0, tags = '') {
   const { fs } = await getHelia();
   
   const chunks = [];
@@ -25,11 +25,11 @@ export async function uploadFile(file, userId = null, isPublic = true, maxSize =
 
   // Save metadata to DB
   const stmt = db.prepare(`
-    INSERT INTO files (cid, filename, mimetype, size, user_id, is_public)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO files (cid, filename, mimetype, size, user_id, is_public, tags)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   
-  const info = stmt.run(cidString, file.filename, file.mimetype, content.length, userId, isPublic ? 1 : 0);
+  const info = stmt.run(cidString, file.filename, file.mimetype, content.length, userId, isPublic ? 1 : 0, tags);
 
   return {
     id: info.lastInsertRowid,
@@ -37,7 +37,8 @@ export async function uploadFile(file, userId = null, isPublic = true, maxSize =
     filename: file.filename,
     size: content.length,
     user_id: userId,
-    is_public: isPublic
+    is_public: isPublic,
+    tags: tags
   };
 }
 
@@ -67,6 +68,9 @@ export function listFiles(userId = null, page = 1, limit = 10, search = '', tag 
   if (tag) {
     whereClause += ' AND tags LIKE ?';
     params.push(`%${tag}%`);
+  } else {
+    // Exclude hidden files by default if no tag is specified
+    whereClause += " AND (tags IS NULL OR tags NOT LIKE '%chat-image%')";
   }
 
   // Count total items

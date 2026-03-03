@@ -30,8 +30,8 @@ export const DEFAULT_SETTINGS = {
     rate_limit_max: 100, // Max requests per minute per IP
     
     // File Uploads
-    allowed_extensions: '.json,.txt,.py,.php,.js,.m3u',
-    max_file_size: 204800, // 200KB in bytes
+    allowed_extensions: '.json,.txt,.py,.php,.js,.m3u,.png,.jpg,.jpeg,.gif',
+    max_file_size: 512000, // 500KB in bytes
     allowed_tags: 'ds,dr2,cat,php,hipy,优,失效', // Updated with '优', '失效'
     
     // Anonymous Access

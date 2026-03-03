@@ -499,6 +499,7 @@
                                 >
                                     <option value="">{{ t.allTags || 'All Tags' }}</option>
                                     <option v-for="tag in allowedTags" :key="tag" :value="tag">{{ tag }}</option>
+                                    <option value="chat-image" v-if="user && (user.role === 'admin' || user.role === 'super_admin')">聊天图片 (Hidden)</option>
                                 </select>
                                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
                                     <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
@@ -872,6 +873,10 @@
                                 <button @click="handleMdAction('newComment', 'code', 'comment-content-input')" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="Code">&lt;/&gt;</button>
                                 <button @click="handleMdAction('newComment', 'link', 'comment-content-input')" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="Link">🔗</button>
                                 <button @click="toggleEmojiPicker('newComment', $event)" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="Emoji">😀</button>
+                                <label class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50 cursor-pointer" title="Upload Image">
+                                    <input type="file" class="hidden" accept="image/*" @change="handleImageUpload($event, 'newComment')">
+                                    🖼️
+                                </label>
                                 <button @click="handleMdAction('newComment', 'list', 'comment-content-input')" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="List">≣</button>
                             </div>
                         </div>
@@ -882,6 +887,7 @@
                                 class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none h-24 min-h-[48px] max-h-48" 
                                 :placeholder="t.reply + '... (Markdown supported)'"
                                 @keydown.ctrl.enter="submitComment"
+                                @paste="handlePaste($event, 'newComment')"
                             ></textarea>
                             <button @click="submitComment" class="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-xl shadow-lg shadow-purple-500/20 transition-all self-end">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -948,6 +954,10 @@
                             <button @click="handleMdAction('chat', 'code', 'chat-input')" class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50" title="Code">&lt;/&gt;</button>
                             <button @click="handleMdAction('chat', 'link', 'chat-input')" class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50" title="Link">🔗</button>
                             <button @click="toggleEmojiPicker('chat', $event)" class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50" title="Emoji">😀</button>
+                            <label class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50 cursor-pointer" title="Upload Image">
+                                <input type="file" class="hidden" accept="image/*" @change="handleImageUpload($event, 'chat')">
+                                🖼️
+                            </label>
                         </div>
                         <form @submit.prevent="sendChatMessage" class="flex gap-2 items-end">
                             <textarea 
@@ -957,6 +967,7 @@
                                 :placeholder="t.chatPlaceholder"
                                 @keydown.enter.exact.prevent="sendChatMessage"
                                 @keydown.enter.shift.exact="() => {}"
+                                @paste="handlePaste($event, 'chat')"
                             ></textarea>
                             <button type="submit" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full shadow-lg shadow-green-500/20 transition-all flex-shrink-0 active:scale-95 mb-0.5">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1028,10 +1039,14 @@
                                 <button @click="handleMdAction('newTopicContent', 'code', 'topic-content-input')" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="Code">&lt;/&gt;</button>
                                 <button @click="handleMdAction('newTopicContent', 'link', 'topic-content-input')" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="Link">🔗</button>
                                 <button @click="toggleEmojiPicker('newTopicContent', $event)" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="Emoji">😀</button>
+                                <label class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100 cursor-pointer" title="Upload Image">
+                                    <input type="file" class="hidden" accept="image/*" @change="handleImageUpload($event, 'newTopicContent')">
+                                    🖼️
+                                </label>
                                 <button @click="handleMdAction('newTopicContent', 'list', 'topic-content-input')" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="List">≣</button>
                             </div>
                         </label>
-                        <textarea id="topic-content-input" v-model="newTopicForm.content" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all resize-none h-48 font-mono text-sm" :placeholder="t.topicContent"></textarea>
+                        <textarea id="topic-content-input" v-model="newTopicForm.content" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all resize-none h-48 font-mono text-sm" :placeholder="t.topicContent" @paste="handlePaste($event, 'newTopicContent')"></textarea>
                     </div>
                 </div>
                 <div class="p-6 bg-gray-50 flex justify-end space-x-3 flex-shrink-0">

@@ -681,6 +681,146 @@ createApp({
             }, 0);
         };
 
+        const handlePaste = async (event, targetType) => {
+            const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+            let file = null;
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file' && item.type.indexOf('image/') !== -1) {
+                    file = item.getAsFile();
+                    break;
+                }
+            }
+            
+            if (!file) return;
+            
+            // Check file size
+            const maxSize = uploadConfig.value.max_file_size;
+            if (file.size > maxSize) {
+                alert(`文件过大: ${file.name} (最大限制: ${formatSize(maxSize)})`);
+                return;
+            }
+
+            event.preventDefault();
+            
+            let textareaId = '';
+            if (targetType === 'chat') textareaId = 'chat-input';
+            else if (targetType === 'newTopicContent') textareaId = 'topic-content-input';
+            else if (targetType === 'newComment') textareaId = 'comment-content-input';
+            
+            const textarea = document.getElementById(textareaId);
+            if (!textarea) return;
+
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const placeholder = `![Uploading ${file.name}...](${t.value.loading || '...'})`;
+            
+            const before = text.substring(0, start);
+            const after = text.substring(end);
+            
+            const updateModel = (val) => {
+                if (targetType === 'chat') chatInput.value = val;
+                else if (targetType === 'newTopicContent') newTopicForm.value.content = val;
+                else if (targetType === 'newComment') newCommentContent.value = val;
+            };
+            
+            updateModel(before + placeholder + after);
+            
+            try {
+                const res = await uploadSingleFile(file, true, 'chat-image');
+                const url = getDownloadUrl(res.cid);
+                const markdownImage = `![${file.name}](${url})`;
+                
+                let currentVal = '';
+                if (targetType === 'chat') currentVal = chatInput.value;
+                else if (targetType === 'newTopicContent') currentVal = newTopicForm.value.content;
+                else if (targetType === 'newComment') currentVal = newCommentContent.value;
+                
+                updateModel(currentVal.replace(placeholder, markdownImage));
+                
+            } catch (e) {
+                console.error(e);
+                alert(t.value.uploadFailed || 'Upload failed');
+                
+                let currentVal = '';
+                if (targetType === 'chat') currentVal = chatInput.value;
+                else if (targetType === 'newTopicContent') currentVal = newTopicForm.value.content;
+                else if (targetType === 'newComment') currentVal = newCommentContent.value;
+                
+                updateModel(currentVal.replace(placeholder, ''));
+            }
+        };
+
+        const handleImageUpload = async (event, targetType) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Reset file input
+            event.target.value = '';
+
+            // Check file size
+            const maxSize = uploadConfig.value.max_file_size;
+            if (file.size > maxSize) {
+                alert(`文件过大: ${file.name} (最大限制: ${formatSize(maxSize)})`);
+                return;
+            }
+
+            let textareaId = '';
+            if (targetType === 'chat') textareaId = 'chat-input';
+            else if (targetType === 'newTopicContent') textareaId = 'topic-content-input';
+            else if (targetType === 'newComment') textareaId = 'comment-content-input';
+            
+            const textarea = document.getElementById(textareaId);
+            if (!textarea) return;
+
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const placeholder = `![Uploading ${file.name}...](${t.value.loading || '...'})`;
+            
+            const before = text.substring(0, start);
+            const after = text.substring(end);
+            
+            const updateModel = (val) => {
+                if (targetType === 'chat') chatInput.value = val;
+                else if (targetType === 'newTopicContent') newTopicForm.value.content = val;
+                else if (targetType === 'newComment') newCommentContent.value = val;
+            };
+            
+            updateModel(before + placeholder + after);
+            
+            try {
+                const res = await uploadSingleFile(file, true, 'chat-image');
+                const url = getDownloadUrl(res.cid);
+                const markdownImage = `![${file.name}](${url})`;
+                
+                let currentVal = '';
+                if (targetType === 'chat') currentVal = chatInput.value;
+                else if (targetType === 'newTopicContent') currentVal = newTopicForm.value.content;
+                else if (targetType === 'newComment') currentVal = newCommentContent.value;
+                
+                updateModel(currentVal.replace(placeholder, markdownImage));
+                
+                setTimeout(() => {
+                    textarea.focus();
+                    const newCursor = start + markdownImage.length;
+                    textarea.setSelectionRange(newCursor, newCursor);
+                }, 0);
+
+            } catch (e) {
+                console.error(e);
+                alert(t.value.uploadFailed || 'Upload failed');
+                
+                let currentVal = '';
+                if (targetType === 'chat') currentVal = chatInput.value;
+                else if (targetType === 'newTopicContent') currentVal = newTopicForm.value.content;
+                else if (targetType === 'newComment') currentVal = newCommentContent.value;
+                
+                updateModel(currentVal.replace(placeholder, ''));
+            }
+        };
+
         // Device detection
         const isAndroid = /Android/i.test(navigator.userAgent);
         
@@ -1045,7 +1185,7 @@ createApp({
             }
         };
 
-        const uploadSingleFile = async (file) => {
+        const uploadSingleFile = async (file, forcePublic = false, tags = '') => {
             const formData = new FormData();
             formData.append('file', file);
             
@@ -1054,7 +1194,11 @@ createApp({
                 headers['Authorization'] = `Bearer ${token.value}`;
             }
 
-            const query = `?is_public=${isPublicUpload.value}`;
+            const isPublic = forcePublic ? 'true' : isPublicUpload.value;
+            let query = `?is_public=${isPublic}`;
+            if (tags) {
+                query += `&tags=${encodeURIComponent(tags)}`;
+            }
             const res = await fetch(`/api/files/upload${query}`, {
                 method: 'POST',
                 headers,
@@ -1065,6 +1209,8 @@ createApp({
                 const data = await res.json();
                 throw new Error(data.error || 'Upload failed');
             }
+            
+            return await res.json();
         };
 
         const toggleVisibility = async (file) => {
@@ -1426,7 +1572,9 @@ createApp({
             emojiPickerStyle,
             emojis,
             toggleEmojiPicker,
-            insertEmoji
+            insertEmoji,
+            handlePaste,
+            handleImageUpload
         };
     }
 }).mount('#app');
