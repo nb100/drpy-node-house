@@ -125,6 +125,7 @@ createApp({
         const editingTopicId = ref(null);
         const newTopicForm = ref({ title: '', content: '' });
         const newCommentContent = ref('');
+        const replyingToComment = ref(null); // Stores the comment object being replied to
         const forumSort = ref('newest');
         const forumFilter = ref('all');
 
@@ -356,16 +357,36 @@ createApp({
 
         const isSubmittingComment = ref(false);
 
+        const replyToComment = (comment) => {
+            replyingToComment.value = comment;
+            // Scroll to input
+            const input = document.getElementById('comment-content-input');
+            if (input) {
+                input.focus();
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        };
+
+        const cancelReply = () => {
+            replyingToComment.value = null;
+        };
+
         const submitComment = async () => {
             if (!newCommentContent.value || isSubmittingComment.value) return;
             isSubmittingComment.value = true;
             try {
+                const payload = { 
+                    content: newCommentContent.value,
+                    parent_id: replyingToComment.value ? replyingToComment.value.id : null
+                };
+
                 const res = await fetchWithAuth(`/api/forum/topics/${currentTopic.value.topic.id}/comments`, {
                     method: 'POST',
-                    body: JSON.stringify({ content: newCommentContent.value })
+                    body: JSON.stringify(payload)
                 });
                 if (res.ok) {
                     newCommentContent.value = '';
+                    replyingToComment.value = null;
                     openTopic(currentTopic.value.topic.id); // Reload topic
                 } else {
                     alert(t.value.opFailed);
@@ -1889,6 +1910,7 @@ createApp({
             editingTopicId,
             newTopicForm,
             newCommentContent,
+            replyingToComment,
             forumSort,
             forumFilter,
             fetchTopics,
@@ -1901,6 +1923,9 @@ createApp({
             togglePin,
             toggleFeature,
             submitComment,
+            replyToComment,
+            cancelReply,
+            isSubmittingComment,
             deleteTopic,
             deleteComment,
             chatMessages,

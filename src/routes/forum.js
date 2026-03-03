@@ -114,7 +114,7 @@ export default async function forumRoutes(fastify, options) {
     // Add comment (Auth required)
     fastify.post('/topics/:id/comments', { preValidation: [fastify.authenticate] }, async (request, reply) => {
         const { id } = request.params;
-        const { content } = request.body;
+        const { content, parent_id } = request.body;
         const user_id = request.user.id;
 
         if (!content) {
@@ -126,8 +126,15 @@ export default async function forumRoutes(fastify, options) {
             return reply.code(404).send({ error: 'Topic not found' });
         }
 
-        const stmt = db.prepare('INSERT INTO comments (topic_id, user_id, content) VALUES (?, ?, ?)');
-        stmt.run(id, user_id, content);
+        if (parent_id) {
+            const parent = db.prepare('SELECT id FROM comments WHERE id = ? AND topic_id = ?').get(parent_id, id);
+            if (!parent) {
+                return reply.code(400).send({ error: 'Parent comment not found in this topic' });
+            }
+        }
+
+        const stmt = db.prepare('INSERT INTO comments (topic_id, user_id, content, parent_id) VALUES (?, ?, ?, ?)');
+        stmt.run(id, user_id, content, parent_id || null);
         
         // Update topic updated_at
         db.prepare('UPDATE topics SET updated_at = strftime(\'%s\', \'now\') WHERE id = ?').run(id);

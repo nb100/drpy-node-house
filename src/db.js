@@ -88,10 +88,16 @@ db.run(`
     user_id INTEGER NOT NULL,
     content TEXT NOT NULL,
     created_at INTEGER DEFAULT (strftime('%s', 'now')),
+    parent_id INTEGER,
     FOREIGN KEY(topic_id) REFERENCES topics(id) ON DELETE CASCADE,
-    FOREIGN KEY(user_id) REFERENCES users(id)
+    FOREIGN KEY(user_id) REFERENCES users(id),
+    FOREIGN KEY(parent_id) REFERENCES comments(id) ON DELETE SET NULL
   )
 `);
+
+try {
+  db.run("ALTER TABLE comments ADD COLUMN parent_id INTEGER REFERENCES comments(id) ON DELETE SET NULL");
+} catch (e) {}
 
 // Chat Messages Table
 db.run(`
