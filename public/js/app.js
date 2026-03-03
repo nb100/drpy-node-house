@@ -1655,6 +1655,8 @@ createApp({
             } else if (ext === 'js') {
                if (tags.includes('dr2')) {
                   lang = 'dr2';
+               } else if (tags.includes('catvod')) {
+                  lang = 'catvod';
                } else {
                   lang = 'ds';
                }

@@ -386,6 +386,8 @@ export default async function (fastify, opts) {
                 } else if (ext === '.js') {
                     if (tags.includes('dr2')) {
                         folder = 'spider/js_dr2/';
+                    } else if (tags.includes('catvod')) {
+                        folder = 'spider/catvod/';
                     } else {
                         folder = 'spider/js/';
                     }
