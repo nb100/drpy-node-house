@@ -871,6 +871,7 @@
                                 <button @click="handleMdAction('newComment', 'italic', 'comment-content-input')" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="Italic"><i>I</i></button>
                                 <button @click="handleMdAction('newComment', 'code', 'comment-content-input')" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="Code">&lt;/&gt;</button>
                                 <button @click="handleMdAction('newComment', 'link', 'comment-content-input')" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="Link">🔗</button>
+                                <button @click="toggleEmojiPicker('newComment', $event)" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="Emoji">😀</button>
                                 <button @click="handleMdAction('newComment', 'list', 'comment-content-input')" class="p-1 text-gray-500 hover:text-purple-600 rounded hover:bg-purple-50" title="List">≣</button>
                             </div>
                         </div>
@@ -946,6 +947,7 @@
                             <button @click="handleMdAction('chat', 'italic', 'chat-input')" class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50" title="Italic"><i>I</i></button>
                             <button @click="handleMdAction('chat', 'code', 'chat-input')" class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50" title="Code">&lt;/&gt;</button>
                             <button @click="handleMdAction('chat', 'link', 'chat-input')" class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50" title="Link">🔗</button>
+                            <button @click="toggleEmojiPicker('chat', $event)" class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50" title="Emoji">😀</button>
                         </div>
                         <form @submit.prevent="sendChatMessage" class="flex gap-2 items-end">
                             <textarea 
@@ -1025,6 +1027,7 @@
                                 <button @click="handleMdAction('newTopicContent', 'italic', 'topic-content-input')" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="Italic"><i>I</i></button>
                                 <button @click="handleMdAction('newTopicContent', 'code', 'topic-content-input')" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="Code">&lt;/&gt;</button>
                                 <button @click="handleMdAction('newTopicContent', 'link', 'topic-content-input')" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="Link">🔗</button>
+                                <button @click="toggleEmojiPicker('newTopicContent', $event)" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="Emoji">😀</button>
                                 <button @click="handleMdAction('newTopicContent', 'list', 'topic-content-input')" class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-100" title="List">≣</button>
                             </div>
                         </label>
@@ -1309,6 +1312,24 @@
                 </div>
             </div>
         </transition>
+
+        <!-- Emoji Picker Modal -->
+        <div v-if="showEmojiPicker" class="fixed inset-0 z-[60]" @click="showEmojiPicker = false">
+            <div 
+                class="absolute bg-white rounded-xl shadow-2xl border border-gray-100 p-2 w-72 max-h-80 overflow-y-auto flex flex-wrap gap-1 content-start"
+                :style="emojiPickerStyle"
+                @click.stop
+            >
+                <button 
+                    v-for="emoji in emojis" 
+                    :key="emoji" 
+                    @click="insertEmoji(emoji)"
+                    class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-xl transition-colors cursor-pointer"
+                >
+                    {{ emoji }}
+                </button>
+            </div>
+        </div>
 
         <!-- Auth Modals -->
         <div v-if="showLogin || showRegister" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">

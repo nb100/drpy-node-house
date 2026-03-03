@@ -545,6 +545,135 @@ createApp({
         const showChangePasswordModal = ref(false);
         const changePasswordForm = ref({ oldPassword: '', newPassword: '' });
 
+        // Emoji State
+        const showEmojiPicker = ref(false);
+        const emojiTarget = ref(null);
+        const emojiPickerStyle = ref({});
+        const emojis = [
+            '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+            '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+            '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+            '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+            '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
+            '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
+            '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯',
+            '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
+            '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈',
+            '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾',
+            '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿',
+            '😾', '👋', '🤚', '🖐', '✋', '🖖', '👌', '🤏', '✌️', '🤞',
+            '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍',
+            '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝',
+            '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦵', '🦿', '🦶', '👣',
+            '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁',
+            '👅', '👄', '💋', '🩸', '❤️', '🧡', '💛', '💚', '💙', '💜',
+            '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖',
+            '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉', '☸️', '✡️', '🔯',
+            '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌',
+            '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑',
+            '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️',
+            '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️',
+            '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛',
+            '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵',
+            '🚭', '❗️', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️',
+            '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️',
+            '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿',
+            '🅿️', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '男人', '🚺',
+            '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🆖', '🆗', '🆙', '🆒',
+            '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣',
+            '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️',
+            '⏸', '⏯', '⏹', '⏺', '⏭', '⏮', '⏩', '⏪', '⏫', '⏬',
+            '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️',
+            '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂',
+            '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '♾', '💲',
+            '💱', '™️', '©️', '®️', '👁️‍🗨️', '🔚', '🔙', '🔛', '🔝', '🔜',
+            '〰️', '➰', '➿', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢',
+            '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔸', '🔹', '🔶',
+            '🔷', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥',
+            '🟧', '🟨', '🟩', '🟦', '🟪', '⬛', '⬜', '🟫', '🔈', '🔇',
+            '🔉', '🔊', '🔔', '🔕', '📣', '📢', '👁️', '🗨️', '🗯️', '💭',
+            '💤', '♨️', '💈', '🛑', '🕛', '🕧', '🕐', '🕜', '🕑', '🕝',
+            '🕒', '🕞', '🕓', '🕟', '🕔', '🕠', '🕕', '🕡', '🕖', '🕢',
+            '🕗', '🕣', '🕘', '🕤', '🕙', '🕥', '🕚', '🕦', '🌑', '🌒',
+            '🌓', '🌔', '🌕', '🌖', '🌗', '🌘', '🌙', '🌚', '🌛', '🌜',
+            '🌡️', '☀️', '🌝', '🌞', '⭐', '🌟', '🌠', '☁️', '⛅', '⛈️',
+            '🌤️', '🌥️', '🌦️', '🌧️', '🌨️', '🌩️', '🌪️', '🌫️', '🌬️',
+            '🌀', '🌈', '🌂', '☂️', '☔', '⛱️', '⚡', '❄️', '☃️', '⛄',
+            '☄️', '🔥', '💧', '🌊'
+        ];
+
+        const toggleEmojiPicker = (target, event) => {
+            if (showEmojiPicker.value && emojiTarget.value === target) {
+                showEmojiPicker.value = false;
+                return;
+            }
+            
+            emojiTarget.value = target;
+            showEmojiPicker.value = true;
+            
+            // Position near the button
+            const rect = event.target.getBoundingClientRect();
+            // Default position (desktop)
+            let top = rect.bottom + window.scrollY + 5;
+            let left = rect.left + window.scrollX;
+            
+            // Check if it goes off screen right
+            if (left + 288 > window.innerWidth) { // 288px is w-72
+                left = window.innerWidth - 300;
+            }
+            
+            // Check if it goes off screen bottom
+            if (top + 320 > window.innerHeight + window.scrollY) { // 320px is max-h-80
+                top = rect.top + window.scrollY - 330;
+            }
+
+            // Mobile adjustment (center it or use fixed bottom)
+            if (window.innerWidth < 768) {
+                emojiPickerStyle.value = {
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    position: 'fixed'
+                };
+            } else {
+                emojiPickerStyle.value = {
+                    top: `${top}px`,
+                    left: `${left}px`,
+                    position: 'absolute'
+                };
+            }
+        };
+
+        const insertEmoji = (emoji) => {
+            let textareaId = '';
+            if (emojiTarget.value === 'chat') textareaId = 'chat-input';
+            else if (emojiTarget.value === 'newTopicContent') textareaId = 'topic-content-input';
+            else if (emojiTarget.value === 'newComment') textareaId = 'comment-content-input';
+            
+            const textarea = document.getElementById(textareaId);
+            if (!textarea) return;
+            
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const before = text.substring(0, start);
+            const after = text.substring(end);
+            
+            const newVal = before + emoji + after;
+            
+            if (emojiTarget.value === 'chat') chatInput.value = newVal;
+            else if (emojiTarget.value === 'newTopicContent') newTopicForm.value.content = newVal;
+            else if (emojiTarget.value === 'newComment') newCommentContent.value = newVal;
+            
+            showEmojiPicker.value = false;
+            
+            setTimeout(() => {
+                textarea.focus();
+                const newCursor = start + emoji.length;
+                textarea.setSelectionRange(newCursor, newCursor);
+            }, 0);
+        };
+
         // Device detection
         const isAndroid = /Android/i.test(navigator.userAgent);
         
@@ -1285,7 +1414,12 @@ createApp({
             scrollToBottom: scrollToBottomAction,
             chatContainer,
             forumListContainer,
-            forumDetailContainer
+            forumDetailContainer,
+            showEmojiPicker,
+            emojiPickerStyle,
+            emojis,
+            toggleEmojiPicker,
+            insertEmoji
         };
     }
 }).mount('#app');
