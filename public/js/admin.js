@@ -172,6 +172,8 @@ createApp({
                 const data = await res.json();
                 // Ensure max_file_size is number
                 if (data.max_file_size) data.max_file_size = parseInt(data.max_file_size);
+                // Ensure chat_interval is number
+                if (data.chat_interval) data.chat_interval = parseInt(data.chat_interval);
                 settings.value = { ...settings.value, ...data };
 
                 // Ensure notification_templates is formatted

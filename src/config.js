@@ -56,6 +56,10 @@ export const DEFAULT_SETTINGS = {
     
     // Notifications
     notification_limit: 10,
+    
+    // Chat
+    chat_interval: 10, // Seconds between messages per user
+
     notification_templates: JSON.stringify({
         'register_approval': {
             'en': { title: 'New Registration Request', message: 'User {{username}} has registered and requires approval.' },

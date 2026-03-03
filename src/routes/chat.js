@@ -1,7 +1,19 @@
 import db from '../db.js';
 import { getUserById } from '../services/authService.js';
+import { DEFAULT_SETTINGS } from '../config.js';
 
 const clients = new Set();
+
+// Helper to get chat interval
+function getChatInterval() {
+    try {
+        const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+        const row = stmt.get('chat_interval');
+        return row ? parseInt(row.value) : DEFAULT_SETTINGS.chat_interval;
+    } catch (e) {
+        return DEFAULT_SETTINGS.chat_interval;
+    }
+}
 
 export default async function chatRoutes(fastify, options) {
   fastify.get('/chat', { websocket: true }, (connection, req) => {
@@ -36,7 +48,11 @@ export default async function chatRoutes(fastify, options) {
       `).all().reverse();
       
       if (socket.readyState === 1) {
-          socket.send(JSON.stringify({ type: 'history', data: history }));
+          socket.send(JSON.stringify({ 
+              type: 'history', 
+              data: history,
+              chatInterval: getChatInterval()
+          }));
       }
     } catch (e) {
       console.error('Error fetching chat history:', e);
@@ -79,6 +95,24 @@ export default async function chatRoutes(fastify, options) {
         if (data.type === 'message') {
             const content = data.content;
             if (!content) return;
+
+            // Rate limiting check
+            const now = Date.now();
+            const lastMessageTime = connection.lastMessageTime || 0;
+            const chatInterval = getChatInterval() * 1000; // Convert to ms
+            
+            if (now - lastMessageTime < chatInterval) {
+                 const remaining = Math.ceil((chatInterval - (now - lastMessageTime)) / 1000);
+                 if (socket.readyState === 1) {
+                     socket.send(JSON.stringify({ 
+                         type: 'error', 
+                         message: `Please wait ${remaining} seconds before sending another message.` 
+                     }));
+                 }
+                 return;
+            }
+
+            connection.lastMessageTime = now;
 
             // Save to DB
             const stmt = db.prepare('INSERT INTO chat_messages (user_id, content, room) VALUES (?, ?, ?)');

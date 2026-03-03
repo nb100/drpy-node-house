@@ -116,6 +116,29 @@ createApp({
         // Chat State
         const chatMessages = ref([]);
         const chatInput = ref('');
+        const chatInterval = ref(10); // Default 10s
+        const lastMessageTime = ref(0);
+        const chatCooldown = ref(0);
+        const chatCooldownTimer = ref(null);
+
+        const chatPlaceholder = computed(() => {
+            if (chatCooldown.value > 0) {
+                return `${t.value.chatPlaceholder} (${chatCooldown.value}s)`;
+            }
+            return t.value.chatPlaceholder;
+        });
+
+        const startChatCooldown = (seconds) => {
+            chatCooldown.value = seconds;
+            if (chatCooldownTimer.value) clearInterval(chatCooldownTimer.value);
+            chatCooldownTimer.value = setInterval(() => {
+                chatCooldown.value--;
+                if (chatCooldown.value <= 0) {
+                    clearInterval(chatCooldownTimer.value);
+                    chatCooldownTimer.value = null;
+                }
+            }, 1000);
+        };
         const ws = ref(null);
         const onlineUsers = ref([]);
         const isChatConnected = ref(false);
@@ -314,6 +337,9 @@ createApp({
                 const data = JSON.parse(event.data);
                 if (data.type === 'history') {
                     chatMessages.value = data.data;
+                    if (data.chatInterval !== undefined) {
+                        chatInterval.value = data.chatInterval;
+                    }
                     scrollToBottom();
                 } else if (data.type === 'message') {
                     chatMessages.value.push(data.data);
@@ -329,6 +355,14 @@ createApp({
                         token.value = null;
                         user.value = null;
                         localStorage.removeItem('token');
+                    } else if (data.message.includes('Please wait')) {
+                        // Extract seconds from "Please wait X seconds..."
+                        const match = data.message.match(/(\d+)\s+seconds/);
+                        if (match) {
+                            startChatCooldown(parseInt(match[1]));
+                        }
+                    } else {
+                        alert(data.message);
                     }
                 }
             };
@@ -344,8 +378,19 @@ createApp({
 
         const sendChatMessage = () => {
             if (!chatInput.value.trim() || !ws.value) return;
+            
+            const now = Date.now();
+            const intervalMs = chatInterval.value * 1000;
+            if (now - lastMessageTime.value < intervalMs) {
+                const remaining = Math.ceil((intervalMs - (now - lastMessageTime.value)) / 1000);
+                startChatCooldown(remaining);
+                return;
+            }
+
             ws.value.send(JSON.stringify({ type: 'message', content: chatInput.value }));
             chatInput.value = '';
+            lastMessageTime.value = now;
+            startChatCooldown(chatInterval.value);
         };
 
         const scrollToBottom = () => {
@@ -1562,6 +1607,8 @@ createApp({
             deleteComment,
             chatMessages,
             chatInput,
+            chatPlaceholder,
+            chatCooldown,
             onlineUsers,
             isChatConnected,
             showOnlineUsersModal,
