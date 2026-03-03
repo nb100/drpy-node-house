@@ -81,7 +81,11 @@ createApp({
         const fileInput = ref(null);
         
         // Auth state
-        const user = ref(null);
+        let savedUser = null;
+        try {
+            savedUser = JSON.parse(localStorage.getItem('user'));
+        } catch(e) {}
+        const user = ref(savedUser);
         const token = ref(localStorage.getItem('token') || null);
         const showLogin = ref(false);
         const showRegister = ref(false);
@@ -722,7 +726,7 @@ createApp({
             }
             const res = await fetch(url, { ...options, headers });
             if (res.status === 401) {
-                logout();
+                logout(false);
             }
             return res;
         };
@@ -1146,12 +1150,18 @@ createApp({
                     headers: { 'Authorization': `Bearer ${token.value}` }
                 });
                 if (res.ok) {
-                    user.value = await res.json();
+                    const userData = await res.json();
+                    user.value = userData;
+                    localStorage.setItem('user', JSON.stringify(userData));
+                } else if (res.status === 401) {
+                    logout(false);
                 } else {
-                    logout();
+                    console.warn('Auth check failed:', res.status);
+                    // Do not logout on other errors (like 429 Rate Limit)
                 }
             } catch (e) {
-                logout();
+                console.error('Auth check error:', e);
+                // Do not logout on network errors
             }
         };
 
@@ -1168,6 +1178,7 @@ createApp({
                     token.value = data.token;
                     localStorage.setItem('token', data.token);
                     user.value = data.user;
+                    localStorage.setItem('user', JSON.stringify(data.user));
                     showLogin.value = false;
                     authForm.value = { username: '', password: '', reason: '' };
                     fetchFiles();
@@ -1193,6 +1204,7 @@ createApp({
                         token.value = data.token;
                         localStorage.setItem('token', data.token);
                         user.value = data.user;
+                        localStorage.setItem('user', JSON.stringify(data.user));
                         fetchFiles();
                     } else {
                         // Pending approval or other status without token
@@ -1208,11 +1220,12 @@ createApp({
             }
         };
 
-        const logout = () => {
-            if (!confirm(t.value.confirmLogout)) return;
+        const logout = (shouldConfirm = true) => {
+            if (shouldConfirm && !confirm(t.value.confirmLogout)) return;
             token.value = null;
             user.value = null;
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
             fetchFiles();
         };
 
@@ -1584,6 +1597,7 @@ createApp({
                 const data = await res.json();
                 if (res.ok) {
                     user.value = data; // Update local user state
+                    localStorage.setItem('user', JSON.stringify(data));
                     showProfileModal.value = false;
                     alert(t.value.profileSaved);
                     // Refresh file list to update nickname display

@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS = {
     registration_ip_limit: 2, // Max accounts per IP per 24h
     
     // Security
-    rate_limit_max: 100, // Max requests per minute per IP
+    rate_limit_max: 300, // Max requests per minute per IP
     
     // File Uploads
     allowed_extensions: '.json,.txt,.py,.php,.js,.m3u,.png,.jpg,.jpeg,.gif',

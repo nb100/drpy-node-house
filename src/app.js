@@ -37,7 +37,11 @@ const rateLimitMax = rateLimitResult ? parseInt(rateLimitResult.value, 10) : (DE
 fastify.register(fastifyRateLimit, {
   max: rateLimitMax,
   timeWindow: '1 minute', // per minute
-  // Allow whitelisting if needed in future
+  allowList: (req) => {
+    // Exclude static files (images, css, js, fonts)
+    if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map)$/i)) return true;
+    return false;
+  }
 });
 
 fastify.register(fastifyJwt, {
