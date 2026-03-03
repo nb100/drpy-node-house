@@ -346,7 +346,9 @@ createApp({
 
             ws.value.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                if (data.type === 'history') {
+                if (data.type === 'recall') {
+                    chatMessages.value = chatMessages.value.filter(m => m.id !== data.messageId);
+                } else if (data.type === 'history') {
                     chatMessages.value = data.data;
                     if (data.chatInterval !== undefined) {
                         chatInterval.value = data.chatInterval;
@@ -385,6 +387,13 @@ createApp({
                     if (currentView.value === 'chat') connectChat();
                 }, 3000);
             };
+        };
+
+        const recallMessage = (id) => {
+            if (!confirm(t.value.confirmRecall)) return;
+            if (ws.value && ws.value.readyState === WebSocket.OPEN) {
+                ws.value.send(JSON.stringify({ type: 'recall', messageId: id }));
+            }
         };
 
         const sendChatMessage = () => {
@@ -1794,6 +1803,7 @@ createApp({
             onlineUsers,
             isChatConnected,
             showOnlineUsersModal,
+            recallMessage,
             sendChatMessage,
             renderMarkdown,
             handleMdAction,

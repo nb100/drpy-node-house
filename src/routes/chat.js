@@ -92,6 +92,41 @@ export default async function chatRoutes(fastify, options) {
           return;
         }
 
+        if (data.type === 'recall') {
+            const messageId = data.messageId;
+            if (!messageId) return;
+
+            // Fetch message to verify ownership
+            const msg = db.prepare('SELECT * FROM chat_messages WHERE id = ?').get(messageId);
+            if (!msg) {
+                if (socket.readyState === 1) {
+                    socket.send(JSON.stringify({ type: 'error', message: 'Message not found' }));
+                }
+                return;
+            }
+
+            // Check permissions
+            const isAuthor = connection.user.id === msg.user_id;
+            const isAdmin = ['admin', 'super_admin'].includes(connection.user.role);
+
+            if (isAuthor || isAdmin) {
+                // Delete message
+                db.prepare('DELETE FROM chat_messages WHERE id = ?').run(messageId);
+                
+                // Broadcast recall event
+                broadcast({ type: 'recall', messageId: messageId });
+                
+                // Broadcast system notification
+                const operatorName = connection.user.nickname || connection.user.username;
+                broadcast({ type: 'system', message: `${operatorName} recalled a message.` });
+            } else {
+                if (socket.readyState === 1) {
+                    socket.send(JSON.stringify({ type: 'error', message: 'Permission denied' }));
+                }
+            }
+            return;
+        }
+
         if (data.type === 'message') {
             const content = data.content;
             if (!content) return;

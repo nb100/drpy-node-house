@@ -209,6 +209,9 @@ export const zh = {
     insertFile: '引用文件',
     searchFilePlaceholder: '搜索文件以引用...',
     insert: '插入',
+    recall: '撤回',
+    confirmRecall: '确定要撤回这条消息吗？',
+    messageRecalled: '该消息已撤回',
 };
 
 export const en = {
@@ -422,4 +425,7 @@ export const en = {
     insertFile: 'Insert File Reference',
     searchFilePlaceholder: 'Search files to reference...',
     insert: 'Insert',
+    recall: 'Recall',
+    confirmRecall: 'Are you sure you want to recall this message?',
+    messageRecalled: 'This message was recalled',
 };
