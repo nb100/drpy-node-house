@@ -226,6 +226,9 @@ export const zh = {
     systemRecall: '{user} 撤回了一条消息',
     systemJoin: '{user} 加入了聊天室',
     systemLeave: '{user} 离开了聊天室',
+    notifyOnReply: '收到回复时通知',
+    notifyOnComment: '话题被评论时通知',
+    notificationSettings: '通知设置',
 };
 
 export const en = {
@@ -455,4 +458,7 @@ export const en = {
     systemRecall: '{user} recalled a message',
     systemJoin: '{user} joined the chat',
     systemLeave: '{user} left the chat',
+    notifyOnReply: 'Notify on new reply',
+    notifyOnComment: 'Notify on topic comment',
+    notificationSettings: 'Notification Settings',
 };

@@ -264,11 +264,16 @@ createApp({
         const openTopic = async (id) => {
             try {
                 const res = await fetch(`/api/forum/topics/${id}`);
+                if (!res.ok) {
+                    throw new Error('Topic not found');
+                }
                 const data = await res.json();
                 currentTopic.value = data;
                 window.scrollTo(0, 0);
             } catch (e) {
                 console.error('Failed to fetch topic', e);
+                alert(t.value.opFailed || 'Failed to load topic');
+                currentTopic.value = null;
             }
         };
 
@@ -673,6 +678,29 @@ createApp({
                 }
             }
             if (note.link) {
+                // Handle internal navigation for SPA experience
+                if (note.link.startsWith('/index.html') || note.link.startsWith(window.location.pathname)) {
+                    try {
+                        const url = new URL(note.link, window.location.origin);
+                        const params = url.searchParams;
+                        const view = params.get('view');
+                        const topicId = params.get('topic');
+
+                        if (view) {
+                            switchView(view);
+                            if (view === 'forum' && topicId) {
+                                openTopic(topicId);
+                            }
+                            // Update URL without reload
+                            window.history.pushState({}, '', note.link);
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse internal link', e);
+                    }
+                }
+                
+                // Fallback to default navigation
                 window.location.href = note.link;
             }
         };
@@ -1528,7 +1556,9 @@ createApp({
                 qq: user.value.qq || '',
                 email: user.value.email || '',
                 phone: user.value.phone || '',
-                download_preference: user.value.download_preference || 'default'
+                download_preference: user.value.download_preference || 'default',
+                notify_on_reply: user.value.notify_on_reply !== 0,
+                notify_on_comment: user.value.notify_on_comment !== 0
             };
             profileError.value = '';
             showProfileModal.value = true;
@@ -1544,6 +1574,8 @@ createApp({
                 if (userProfileForm.value.email !== undefined) payload.email = userProfileForm.value.email;
                 if (userProfileForm.value.phone !== undefined) payload.phone = userProfileForm.value.phone;
                 if (userProfileForm.value.download_preference !== undefined) payload.download_preference = userProfileForm.value.download_preference;
+                payload.notify_on_reply = userProfileForm.value.notify_on_reply ? 1 : 0;
+                payload.notify_on_comment = userProfileForm.value.notify_on_comment ? 1 : 0;
 
                 const res = await fetchWithAuth('/api/auth/me', {
                     method: 'PUT',
@@ -1816,6 +1848,42 @@ createApp({
                 fetchNotifications();
                 setInterval(fetchNotifications, 60000);
             }
+            
+            // Check for view query param
+            const urlParams = new URLSearchParams(window.location.search);
+            const view = urlParams.get('view');
+            const topicId = urlParams.get('topic');
+            
+            if (view === 'forum') {
+                switchView('forum');
+                if (topicId) {
+                    // Wait for topics to load or just open it directly
+                    // openTopic fetches by ID so it doesn't need the list
+                    openTopic(topicId);
+                }
+            } else if (view === 'chat') {
+                switchView('chat');
+            }
+            
+            // Handle browser back/forward navigation
+            window.addEventListener('popstate', (event) => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const view = urlParams.get('view');
+                const topicId = urlParams.get('topic');
+                
+                if (view === 'forum') {
+                    switchView('forum');
+                    if (topicId) {
+                        openTopic(topicId);
+                    } else {
+                        currentTopic.value = null;
+                    }
+                } else if (view === 'chat') {
+                    switchView('chat');
+                } else {
+                    switchView('files');
+                }
+            });
             
             fetchFiles();
         });

@@ -20,9 +20,16 @@ db.run(`
     password TEXT NOT NULL,
     role TEXT DEFAULT 'user', -- 'admin', 'user'
     status TEXT DEFAULT 'active', -- 'active', 'pending', 'banned'
-    created_at INTEGER DEFAULT (strftime('%s', 'now'))
+    created_at INTEGER DEFAULT (strftime('%s', 'now')),
+    notify_on_reply INTEGER DEFAULT 1,
+    notify_on_comment INTEGER DEFAULT 1
   )
 `);
+
+try {
+  db.run("ALTER TABLE users ADD COLUMN notify_on_reply INTEGER DEFAULT 1");
+  db.run("ALTER TABLE users ADD COLUMN notify_on_comment INTEGER DEFAULT 1");
+} catch (e) {}
 
 // Settings Table
 db.run(`

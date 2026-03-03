@@ -1,4 +1,5 @@
 import db from '../db.js';
+import { createNotification } from '../services/notificationService.js';
 
 export default async function forumRoutes(fastify, options) {
     // Get all topics (with pagination and optional search)
@@ -138,6 +139,66 @@ export default async function forumRoutes(fastify, options) {
         
         // Update topic updated_at
         db.prepare('UPDATE topics SET updated_at = strftime(\'%s\', \'now\') WHERE id = ?').run(id);
+
+        // --- Notifications ---
+        
+        // 1. Notify Topic Owner (if someone else comments)
+        const topicOwner = db.prepare('SELECT user_id, title FROM topics WHERE id = ?').get(id);
+        if (topicOwner && topicOwner.user_id !== user_id) {
+            const ownerSettings = db.prepare('SELECT notify_on_comment FROM users WHERE id = ?').get(topicOwner.user_id);
+            if (ownerSettings && ownerSettings.notify_on_comment) {
+                createNotification(
+                    topicOwner.user_id,
+                    JSON.stringify({ en: 'New Comment', zh: '新评论' }),
+                    JSON.stringify({ 
+                        en: `User ${request.user.nickname || request.user.username} commented on your topic "${topicOwner.title}"`, 
+                        zh: `用户 ${request.user.nickname || request.user.username} 评论了你的话题 "${topicOwner.title}"` 
+                    }),
+                    'forum',
+                    `/index.html?view=forum&topic=${id}` // Frontend handles this query param to open topic? Need to check.
+                    // Actually frontend doesn't handle query params for view routing directly on load in app.js...
+                    // But wait, the notification click handler in frontend might need update or we rely on user navigation.
+                    // Let's assume standard link or handle it later.
+                    // Current frontend notification click: just shows alert or nothing?
+                    // Let's check frontend logic later.
+                );
+            }
+        }
+
+        // 2. Notify Parent Comment Author (if replying)
+        if (parent_id) {
+            const parentComment = db.prepare(`
+                SELECT c.user_id, c.content 
+                FROM comments c 
+                WHERE c.id = ?
+            `).get(parent_id);
+            
+            // If parent author is different from current user AND different from topic owner (to avoid double notification if they are same)
+            // Actually, if topic owner is also parent comment author, they might want to know it's a REPLY specifically?
+            // Let's simplify: Notify parent author if they are not the current user.
+            if (parentComment && parentComment.user_id !== user_id) {
+                 // Check if we already notified them as topic owner
+                 if (parentComment.user_id !== topicOwner.user_id) {
+                     const parentSettings = db.prepare('SELECT notify_on_reply FROM users WHERE id = ?').get(parentComment.user_id);
+                     if (parentSettings && parentSettings.notify_on_reply) {
+                         createNotification(
+                            parentComment.user_id,
+                            JSON.stringify({ en: 'New Reply', zh: '新回复' }),
+                            JSON.stringify({ 
+                                en: `User ${request.user.nickname || request.user.username} replied to your comment: "${parentComment.content.substring(0, 20)}..."`, 
+                                zh: `用户 ${request.user.nickname || request.user.username} 回复了你的评论: "${parentComment.content.substring(0, 20)}..."` 
+                            }),
+                            'forum',
+                            `/index.html?view=forum&topic=${id}`
+                        );
+                     }
+                 } else {
+                     // If topic owner is parent author, maybe update the message to say "replied to your comment" instead of "commented on topic"?
+                     // Or just leave it as "New Comment" notification is enough.
+                     // Let's leave it simple.
+                 }
+            }
+        }
 
         return { message: 'Comment added successfully' };
     });

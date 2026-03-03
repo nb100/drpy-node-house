@@ -1328,6 +1328,20 @@
                         </div>
 
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ t.notificationSettings }}</label>
+                            <div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                <label class="flex items-center space-x-3 cursor-pointer">
+                                    <input type="checkbox" v-model="userProfileForm.notify_on_reply" class="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                    <span class="text-gray-700 text-sm">{{ t.notifyOnReply }}</span>
+                                </label>
+                                <label class="flex items-center space-x-3 cursor-pointer">
+                                    <input type="checkbox" v-model="userProfileForm.notify_on_comment" class="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                    <span class="text-gray-700 text-sm">{{ t.notifyOnComment }}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ t.downloadPreference }}</label>
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
