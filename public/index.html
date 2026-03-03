@@ -906,26 +906,30 @@
                                 {{ t.comments }} ({{ currentTopic.comments.length }})
                             </h3>
                             
-                            <div v-for="comment in currentTopic.comments" :key="comment.id" class="flex gap-4 group">
+                            <div v-for="(comment, index) in currentTopic.comments" :key="comment.id" class="flex gap-4 group">
                                 <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold">
                                     {{ (comment.nickname || comment.username || 'A')[0].toUpperCase() }}
                                 </div>
                                 <div class="flex-1">
                                     <div class="bg-gray-50 rounded-2xl rounded-tl-none p-3 relative">
                                         <div class="flex justify-between items-start mb-1">
-                                            <span class="font-semibold text-sm text-gray-800">{{ comment.nickname || comment.username }}</span>
-                                            <span class="text-xs text-gray-400">{{ formatDate(comment.created_at) }}</span>
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-semibold text-sm text-gray-800">{{ comment.nickname || comment.username }}</span>
+                                                <span class="text-xs text-purple-400 font-mono bg-purple-50 px-1.5 py-0.5 rounded">#{{ index + 1 }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs text-gray-400">{{ formatDate(comment.created_at) }}</span>
+                                                <button v-if="user && (user.role === 'admin' || user.role === 'super_admin' || user.id == comment.user_id || user.id == currentTopic.topic.user_id)" 
+                                                    @click.stop="deleteComment(comment.id)" 
+                                                    class="text-gray-400 hover:text-red-500 transition-all p-1"
+                                                    :title="t.deleteComment">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="text-sm text-gray-700 prose prose-sm max-w-none" v-html="renderMarkdown(comment.content)"></div>
-                                        
-                                        <button v-if="user && (user.role === 'admin' || user.role === 'super_admin' || user.id === comment.user_id)" 
-                                            @click="deleteComment(comment.id)" 
-                                            class="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1"
-                                            :title="t.deleteComment">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
                                     </div>
                                 </div>
                             </div>

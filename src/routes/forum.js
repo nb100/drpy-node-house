@@ -210,17 +210,28 @@ export default async function forumRoutes(fastify, options) {
         return { message: 'Topic deleted successfully' };
     });
 
-    // Delete comment (Admin or Owner)
+    // Delete comment (Admin, Owner, or Topic Owner)
     fastify.delete('/comments/:id', { preValidation: [fastify.authenticate] }, async (request, reply) => {
         const { id } = request.params;
         const user = request.user;
 
-        const comment = db.prepare('SELECT user_id FROM comments WHERE id = ?').get(id);
+        // Get comment and its topic_id to check topic owner
+        const comment = db.prepare(`
+            SELECT c.user_id, c.topic_id, t.user_id as topic_owner_id 
+            FROM comments c
+            JOIN topics t ON c.topic_id = t.id
+            WHERE c.id = ?
+        `).get(id);
+
         if (!comment) {
             return reply.code(404).send({ error: 'Comment not found' });
         }
 
-        if (user.role !== 'admin' && user.role !== 'super_admin' && user.id !== comment.user_id) {
+        const isCommentOwner = user.id === comment.user_id;
+        const isTopicOwner = user.id === comment.topic_owner_id;
+        const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+
+        if (!isAdmin && !isCommentOwner && !isTopicOwner) {
             return reply.code(403).send({ error: 'Permission denied' });
         }
 
