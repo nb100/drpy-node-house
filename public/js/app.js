@@ -354,8 +354,11 @@ createApp({
             } catch (e) { console.error(e); }
         };
 
+        const isSubmittingComment = ref(false);
+
         const submitComment = async () => {
-            if (!newCommentContent.value) return;
+            if (!newCommentContent.value || isSubmittingComment.value) return;
+            isSubmittingComment.value = true;
             try {
                 const res = await fetchWithAuth(`/api/forum/topics/${currentTopic.value.topic.id}/comments`, {
                     method: 'POST',
@@ -369,6 +372,10 @@ createApp({
                 }
             } catch (e) {
                 console.error('Failed to submit comment', e);
+            } finally {
+                setTimeout(() => {
+                    isSubmittingComment.value = false;
+                }, 1000); // 1s throttle
             }
         };
 
