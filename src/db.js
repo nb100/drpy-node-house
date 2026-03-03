@@ -193,6 +193,60 @@ try {
   db.run("ALTER TABLE users ADD COLUMN registration_ip TEXT");
 } catch (e) {}
 
+try {
+  db.run("ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE users ADD COLUMN last_checkin_date TEXT");
+} catch (e) {}
+
+// User Points History Table
+db.run(`
+  CREATE TABLE IF NOT EXISTS user_points_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    related_id INTEGER,
+    created_at INTEGER DEFAULT (strftime('%s', 'now')),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  )
+`);
+
+// Topic Purchases Table
+db.run(`
+  CREATE TABLE IF NOT EXISTS topic_purchases (
+    user_id INTEGER NOT NULL,
+    topic_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL,
+    created_at INTEGER DEFAULT (strftime('%s', 'now')),
+    PRIMARY KEY (user_id, topic_id),
+    FOREIGN KEY(user_id) REFERENCES users(id),
+    FOREIGN KEY(topic_id) REFERENCES topics(id)
+  )
+`);
+
+try {
+  db.run("ALTER TABLE topics ADD COLUMN view_permission_level INTEGER DEFAULT 0");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE topics ADD COLUMN view_points_required INTEGER DEFAULT 0");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE topics ADD COLUMN bounty_points INTEGER DEFAULT 0");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE topics ADD COLUMN is_solved INTEGER DEFAULT 0");
+} catch (e) {}
+
+try {
+  db.run("ALTER TABLE topics ADD COLUMN solved_comment_id INTEGER");
+} catch (e) {}
+
 // Seed default settings
 for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
   db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', key, value);

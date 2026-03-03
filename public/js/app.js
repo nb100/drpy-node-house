@@ -128,7 +128,7 @@ createApp({
         const showCreateTopic = ref(false);
         const isEditingTopic = ref(false);
         const editingTopicId = ref(null);
-        const newTopicForm = ref({ title: '', content: '' });
+        const newTopicForm = ref({ title: '', content: '', bounty_points: 0, view_permission_level: 0, view_points_required: 0 });
         const newCommentContent = ref('');
         const replyingToComment = ref(null); // Stores the comment object being replied to
         const forumSort = ref('newest');
@@ -164,6 +164,7 @@ createApp({
         const onlineUsers = ref([]);
         const isChatConnected = ref(false);
         const showOnlineUsersModal = ref(false);
+        const showSiteInfoPopover = ref(false);
 
         const switchView = (view) => {
             currentView.value = view;
@@ -266,20 +267,58 @@ createApp({
             }, 0);
         };
 
-        const openTopic = async (id) => {
+        const openTopic = async (id, forceRefresh = false) => {
             try {
-                const res = await fetch(`/api/forum/topics/${id}`);
+                // Update URL if not forcing refresh (which implies we are already viewing it)
+                if (!forceRefresh) {
+                    const url = new URL(window.location);
+                    url.searchParams.set('view', 'forum');
+                    url.searchParams.set('topic', id);
+                    window.history.pushState({}, '', url);
+                }
+
+                let url = `/api/forum/topics/${id}`;
+                if (forceRefresh) {
+                    url += `?_t=${Date.now()}`;
+                }
+                const res = await fetchWithAuth(url, {
+                    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                });
                 if (!res.ok) {
                     throw new Error('Topic not found');
                 }
                 const data = await res.json();
+                
+                // Check for auth mismatch (Frontend thinks logged in, Backend says login required)
+                if (data.topic && data.topic.access_denied && data.topic.deny_reason === 'login_required') {
+                    if (user.value) {
+                        console.warn('Backend rejected auth token. Logging out.');
+                        logout(false);
+                        showLogin.value = true;
+                        alert(t.value.loginRequired);
+                    }
+                }
+
                 currentTopic.value = data;
-                window.scrollTo(0, 0);
+                if (!forceRefresh) {
+                    window.scrollTo(0, 0);
+                }
             } catch (e) {
                 console.error('Failed to fetch topic', e);
-                alert(t.value.opFailed || 'Failed to load topic');
+                alert(t.value.loadTopicFailed);
                 currentTopic.value = null;
             }
+        };
+
+        const closeTopic = () => {
+            currentTopic.value = null;
+            // Update URL
+            const url = new URL(window.location);
+            url.searchParams.delete('topic');
+            window.history.pushState({}, '', url);
+            
+            fetchTopics(forumPage.value);
+            window.scrollTo(0, 0);
         };
 
         const createTopic = async () => {
@@ -295,8 +334,9 @@ createApp({
                         isEditingTopic.value = false;
                         editingTopicId.value = null;
                         newTopicForm.value = { title: '', content: '' };
+                        checkAuth(); // Refresh points
                         if (currentTopic.value) {
-                            openTopic(currentTopic.value.topic.id);
+                            openTopic(currentTopic.value.topic.id, true);
                         } else {
                             fetchTopics(forumPage.value);
                         }
@@ -311,6 +351,7 @@ createApp({
                     if (res.ok) {
                         showCreateTopic.value = false;
                         newTopicForm.value = { title: '', content: '' };
+                        checkAuth(); // Refresh points
                         fetchTopics();
                     } else {
                         alert(t.value.opFailed);
@@ -324,7 +365,26 @@ createApp({
         const openEditTopic = (topic) => {
             isEditingTopic.value = true;
             editingTopicId.value = topic.id;
-            newTopicForm.value = { title: topic.title, content: topic.content };
+            newTopicForm.value = { 
+                title: topic.title, 
+                content: topic.content,
+                bounty_points: topic.bounty_points || 0,
+                view_permission_level: topic.view_permission_level || 0,
+                view_points_required: topic.view_points_required || 0
+            };
+            showCreateTopic.value = true;
+        };
+
+        const openCreateTopic = () => {
+            isEditingTopic.value = false;
+            editingTopicId.value = null;
+            newTopicForm.value = { 
+                title: '', 
+                content: '',
+                bounty_points: 0,
+                view_permission_level: 0,
+                view_points_required: 0
+            };
             showCreateTopic.value = true;
         };
 
@@ -332,7 +392,13 @@ createApp({
             showCreateTopic.value = false;
             isEditingTopic.value = false;
             editingTopicId.value = null;
-            newTopicForm.value = { title: '', content: '' };
+            newTopicForm.value = { 
+                title: '', 
+                content: '',
+                bounty_points: 0,
+                view_permission_level: 0,
+                view_points_required: 0
+            };
         };
 
         const togglePin = async (id, currentStatus) => {
@@ -397,9 +463,17 @@ createApp({
                 if (res.ok) {
                     newCommentContent.value = '';
                     replyingToComment.value = null;
-                    openTopic(currentTopic.value.topic.id); // Reload topic
+                    await checkAuth(); // Refresh points
+                    // Reload topic to show new comment (add timestamp to bust cache)
+                    // Use openTopic to ensure consistent behavior
+                    await openTopic(currentTopic.value.topic.id, true);
                 } else {
-                    alert(t.value.opFailed);
+                    const data = await res.json();
+                    if (data.reason) {
+                        alert(t.value[data.reason] || data.error || t.value.opFailed);
+                    } else {
+                        alert(data.error || t.value.opFailed);
+                    }
                 }
             } catch (e) {
                 console.error('Failed to submit comment', e);
@@ -491,7 +565,7 @@ createApp({
                 } else if (data.type === 'users') {
                     onlineUsers.value = data.data;
                 } else if (data.type === 'error') {
-                    if (data.message === 'Invalid token') {
+                    if (data.message === 'invalid_token') {
                         console.error('Session expired or invalid token');
                         token.value = null;
                         user.value = null;
@@ -918,7 +992,7 @@ createApp({
             // Check file size
             const maxSize = uploadConfig.value.max_file_size;
             if (file.size > maxSize) {
-                alert(`文件过大: ${file.name} (最大限制: ${formatSize(maxSize)})`);
+                alert(t.value.fileTooLarge.replace('{filename}', file.name).replace('{maxSize}', formatSize(maxSize)));
                 return;
             }
 
@@ -962,7 +1036,7 @@ createApp({
                 
             } catch (e) {
                 console.error(e);
-                alert(t.value.uploadFailed || 'Upload failed');
+                alert(t.value.uploadFailed);
                 
                 let currentVal = '';
                 if (targetType === 'chat') currentVal = chatInput.value;
@@ -983,7 +1057,7 @@ createApp({
             // Check file size
             const maxSize = uploadConfig.value.max_file_size;
             if (file.size > maxSize) {
-                alert(`文件过大: ${file.name} (最大限制: ${formatSize(maxSize)})`);
+                alert(t.value.fileTooLarge.replace('{filename}', file.name).replace('{maxSize}', formatSize(maxSize)));
                 return;
             }
 
@@ -1031,7 +1105,7 @@ createApp({
 
             } catch (e) {
                 console.error(e);
-                alert(t.value.uploadFailed || 'Upload failed');
+                alert(t.value.uploadFailed);
                 
                 let currentVal = '';
                 if (targetType === 'chat') currentVal = chatInput.value;
@@ -1107,7 +1181,7 @@ createApp({
                     changePasswordForm.value = { oldPassword: '', newPassword: '' };
                 } else {
                     const data = await res.json();
-                    alert(data.error || t.value.opFailed);
+                    alert(t.value[data.error] || data.error || t.value.opFailed);
                 }
             } catch (e) {
                 console.error(e);
@@ -1185,7 +1259,7 @@ createApp({
                     authForm.value = { username: '', password: '', reason: '' };
                     fetchFiles();
                 } else {
-                    authError.value = data.error || t.value.loginFailed;
+                    authError.value = t.value[data.error] || data.error || t.value.loginFailed;
                 }
             } catch (e) {
                 authError.value = t.value.loginFailed;
@@ -1215,7 +1289,7 @@ createApp({
                     showRegister.value = false;
                     authForm.value = { username: '', password: '', reason: '' };
                 } else {
-                    authError.value = data.error || t.value.registerFailed;
+                    authError.value = t.value[data.error] || data.error || t.value.registerFailed;
                 }
             } catch (e) {
                 authError.value = t.value.registerFailed;
@@ -1368,9 +1442,9 @@ createApp({
                 const isSizeValid = file.size <= maxSize;
                 
                 if (!isExtValid) {
-                    errors.push(`文件类型不允许: ${file.name}`);
+                    errors.push(t.value.fileTypeNotAllowed.replace('{filename}', file.name));
                 } else if (!isSizeValid) {
-                    errors.push(`文件过大: ${file.name} (最大限制: ${formatSize(maxSize)})`);
+                    errors.push(t.value.fileTooLarge.replace('{filename}', file.name).replace('{maxSize}', formatSize(maxSize)));
                 } else {
                     validFiles.push(file);
                 }
@@ -1438,7 +1512,7 @@ createApp({
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || 'Upload failed');
+                throw new Error(data.error || t.value.uploadFailed);
             }
             
             return await res.json();
@@ -1509,7 +1583,7 @@ createApp({
                 // Try modern API first
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(text);
-                    alert('已复制到剪贴板');
+                    alert(t.value.clipboardCopied);
                 } else {
                     // Fallback for older browsers / webviews without clipboard API
                     const textArea = document.createElement("textarea");
@@ -1526,18 +1600,18 @@ createApp({
                     
                     try {
                         const successful = document.execCommand('copy');
-                        const msg = successful ? '已复制到剪贴板' : '复制失败';
+                        const msg = successful ? t.value.clipboardCopied : t.value.clipboardFailed;
                         alert(msg);
                     } catch (err) {
                         console.error('Fallback copy failed', err);
-                        alert('复制失败');
+                        alert(t.value.clipboardFailed);
                     }
                     
                     document.body.removeChild(textArea);
                 }
             } catch (err) {
                 console.error('Failed to copy: ', err);
-                alert('复制失败');
+                alert(t.value.clipboardFailed);
             }
         };
 
@@ -1564,7 +1638,10 @@ createApp({
             }
         });
 
-        const openProfileModal = () => {
+        const openProfileModal = async () => {
+            // Refresh user data to get latest points/status
+            await checkAuth();
+            
             if (!user.value) return;
             userProfileForm.value = {
                 nickname: user.value.nickname || '',
@@ -1607,7 +1684,7 @@ createApp({
                     // Refresh file list to update nickname display
                     fetchFiles();
                 } else {
-                    profileError.value = data.error === 'Nickname already exists' ? t.value.nicknameExists : (data.error || 'Update failed');
+                    profileError.value = data.error === 'nickname_exists' ? t.value.nicknameExists : (data.error || t.value.update_profile_failed || 'Update failed');
                 }
             } catch (e) {
                 console.error(e);
@@ -1851,6 +1928,91 @@ createApp({
              }
         };
 
+        const checkin = async () => {
+            if (!user.value) return;
+            try {
+                const res = await fetch('/api/auth/checkin', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token.value}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    user.value.points += data.points;
+                    user.value.isCheckedIn = true;
+                    showNotification(t.value.checkinSuccess);
+                } else {
+                    showNotification(data.message || t.value.checkinFailed, 'error');
+                }
+            } catch (e) {
+                showNotification(t.value.networkError, 'error');
+            }
+        };
+
+        const purchaseTopic = async (topicId, cost) => {
+            if (!confirm(t.value.purchaseConfirm.replace('{amount}', cost))) return;
+            try {
+                const res = await fetchWithAuth(`/api/forum/topics/${topicId}/purchase`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showNotification(t.value.purchaseSuccess);
+                    await checkAuth(); // Refresh points
+                    
+                    // Add a small delay to ensure backend consistency and give user feedback
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Reload topic to show content (add timestamp to bust cache)
+                    // Use openTopic to ensure consistent behavior
+                    await openTopic(topicId, true);
+                } else {
+                    showNotification(t.value[data.error] || data.error || t.value.purchaseFailed, 'error');
+                }
+            } catch (e) {
+                showNotification(t.value.networkError, 'error');
+            }
+        };
+
+        const solveTopic = async (topicId, commentId) => {
+            if (!confirm(t.value.confirmSolve)) return;
+             try {
+                const res = await fetchWithAuth(`/api/forum/topics/${topicId}/solve`, {
+                    method: 'POST',
+                    body: JSON.stringify({ comment_id: commentId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showNotification(t.value.solved);
+                    await checkAuth(); // Refresh points
+                    // Reload topic
+                    await openTopic(topicId, true);
+                } else {
+                    showNotification(data.error || t.value.opFailed, 'error');
+                }
+            } catch (e) {
+                showNotification(t.value.networkError, 'error');
+            }
+        };
+
+        const showPointsHistory = ref(false);
+        const pointsHistory = ref([]);
+        
+        const fetchPointsHistory = async () => {
+            try {
+                const res = await fetchWithAuth('/api/auth/points/history');
+                if (res.ok) {
+                    pointsHistory.value = await res.json();
+                    showPointsHistory.value = true;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        
+        const showNotification = (msg, type = 'success') => {
+            alert(msg); // Fallback to alert for now, can implement toast later
+        };
+
         onMounted(async () => {
             try {
                 await Promise.all([
@@ -1892,10 +2054,16 @@ createApp({
                 const topicId = urlParams.get('topic');
                 
                 if (view === 'forum') {
+                    // switchView('forum') calls fetchTopics(), but we need to ensure it's called
+                    // if we are just closing the topic.
+                    // If we are already in forum view, switchView sets currentView and calls fetchTopics.
                     switchView('forum');
                     if (topicId) {
-                        openTopic(topicId);
+                        openTopic(topicId, true); // Use forceRefresh to be safe
                     } else {
+                        // If we were in a topic and went back to list, topicId is null.
+                        // currentTopic should be cleared.
+                        // switchView called fetchTopics, so list should refresh.
                         currentTopic.value = null;
                     }
                 } else if (view === 'chat') {
@@ -2007,7 +2175,9 @@ createApp({
             openTopic,
             createTopic,
             openEditTopic,
+            openCreateTopic,
             closeCreateTopic,
+            closeTopic,
             togglePin,
             toggleFeature,
             submitComment,
@@ -2023,6 +2193,7 @@ createApp({
             onlineUsers,
             isChatConnected,
             showOnlineUsersModal,
+            showSiteInfoPopover,
             recallMessage,
             sendChatMessage,
             renderMarkdown,
@@ -2045,6 +2216,12 @@ createApp({
             fileSelectorList,
             fileSelectorPage,
             fileSelectorTotalPages,
+            checkin,
+            purchaseTopic,
+            solveTopic,
+            showPointsHistory,
+            pointsHistory,
+            fetchPointsHistory,
             fileSelectorLoading,
             openFileSelector,
             fetchFilesForSelector,

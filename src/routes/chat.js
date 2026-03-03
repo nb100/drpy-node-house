@@ -1,6 +1,7 @@
 import db from '../db.js';
 import { getUserById } from '../services/authService.js';
 import { DEFAULT_SETTINGS } from '../config.js';
+import { getRank } from '../services/pointsService.js';
 
 const clients = new Set();
 
@@ -40,12 +41,15 @@ export default async function chatRoutes(fastify, options) {
     // Send initial history
     try {
       const history = db.prepare(`
-        SELECT m.*, u.username, u.nickname, u.role
+        SELECT m.*, u.username, u.nickname, u.role, u.points
         FROM chat_messages m
         JOIN users u ON m.user_id = u.id
         ORDER BY m.created_at DESC
         LIMIT 50
-      `).all().reverse();
+      `).all().reverse().map(msg => {
+          const rank = getRank(msg.points || 0);
+          return { ...msg, rankLevel: rank.level };
+      });
       
       if (socket.readyState === 1) {
           socket.send(JSON.stringify({ 
@@ -78,7 +82,7 @@ export default async function chatRoutes(fastify, options) {
             broadcastOnlineUsers();
           } catch (err) {
             if (socket.readyState === 1) {
-                socket.send(JSON.stringify({ type: 'error', message: 'Invalid token' }));
+                socket.send(JSON.stringify({ type: 'error', message: 'invalid_token' }));
                 // Do not close connection, just let them be anonymous
             }
           }
@@ -87,7 +91,7 @@ export default async function chatRoutes(fastify, options) {
 
         if (!connection.user) {
           if (socket.readyState === 1) {
-              socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }));
+              socket.send(JSON.stringify({ type: 'error', message: 'unauthorized' }));
           }
           return;
         }
@@ -100,7 +104,7 @@ export default async function chatRoutes(fastify, options) {
             const msg = db.prepare('SELECT * FROM chat_messages WHERE id = ?').get(messageId);
             if (!msg) {
                 if (socket.readyState === 1) {
-                    socket.send(JSON.stringify({ type: 'error', message: 'Message not found' }));
+                    socket.send(JSON.stringify({ type: 'error', message: 'message_not_found' }));
                 }
                 return;
             }
@@ -123,7 +127,7 @@ export default async function chatRoutes(fastify, options) {
                 broadcast({ type: 'system_recall', operator: operatorName });
             } else {
                 if (socket.readyState === 1) {
-                    socket.send(JSON.stringify({ type: 'error', message: 'Permission denied' }));
+                    socket.send(JSON.stringify({ type: 'error', message: 'permission_denied' }));
                 }
             }
             return;
@@ -162,6 +166,7 @@ export default async function chatRoutes(fastify, options) {
                 username: connection.user.username,
                 nickname: connection.user.nickname, // JWT payload might need nickname
                 role: connection.user.role,
+                rankLevel: connection.user.rankLevel || 0,
                 content: content,
                 created_at: Math.floor(Date.now() / 1000),
                 room: 'general'
@@ -198,7 +203,8 @@ function broadcastOnlineUsers() {
                 id: client.user.id,
                 username: client.user.username,
                 nickname: client.user.nickname,
-                role: client.user.role
+                role: client.user.role,
+                rankLevel: client.user.rankLevel || 0
             });
         }
     }

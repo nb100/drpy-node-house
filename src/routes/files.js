@@ -115,7 +115,7 @@ export default async function (fastify, opts) {
     }
 
     try {
-      const { stream, filename, mimetype } = await getFileStream(cid, user ? user.id : null);
+      const { stream, filename, mimetype } = await getFileStream(cid, user);
       
       const encodedFilename = encodeURIComponent(filename);
       const dispositionType = isPreview ? 'inline' : 'attachment';

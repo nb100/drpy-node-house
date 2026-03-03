@@ -1,6 +1,7 @@
 import db from '../db.js';
 import bcrypt from 'bcryptjs';
 import { DEFAULT_SETTINGS } from '../config.js';
+import { getRank } from './pointsService.js';
 
 export async function initSuperAdmin() {
   const stmt = db.prepare('SELECT count(*) as count FROM users');
@@ -152,8 +153,19 @@ export async function changePassword(userId, oldPassword, newPassword) {
 }
 
 export async function getUserById(userId) {
-  const stmt = db.prepare('SELECT id, username, role, status, nickname, qq, email, phone, download_preference, notify_on_reply, notify_on_comment, show_scroll_buttons FROM users WHERE id = ?');
-  return stmt.get(userId);
+  const stmt = db.prepare('SELECT id, username, role, status, nickname, qq, email, phone, download_preference, notify_on_reply, notify_on_comment, show_scroll_buttons, points, last_checkin_date FROM users WHERE id = ?');
+  const user = stmt.get(userId);
+  
+  if (user) {
+    const rank = getRank(user.points || 0);
+    user.rankLevel = rank.level;
+    user.rankTitle = rank.title;
+    
+    const today = new Date().toISOString().split('T')[0];
+    user.isCheckedIn = user.last_checkin_date === today;
+  }
+  
+  return user;
 }
 
 export async function updateUserProfile(userId, { nickname, qq, email, phone, download_preference, notify_on_reply, notify_on_comment, show_scroll_buttons }) {
