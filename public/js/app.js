@@ -354,6 +354,10 @@ createApp({
                         chatInterval.value = data.chatInterval;
                     }
                     scrollToBottom();
+                } else if (data.type === 'system_recall') {
+                    const message = t.value.systemRecall.replace('{user}', data.operator);
+                    chatMessages.value.push({ type: 'system', content: message });
+                    scrollToBottom();
                 } else if (data.type === 'message') {
                     chatMessages.value.push(data.data);
                     scrollToBottom();

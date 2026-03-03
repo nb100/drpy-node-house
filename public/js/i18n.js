@@ -212,6 +212,7 @@ export const zh = {
     recall: '撤回',
     confirmRecall: '确定要撤回这条消息吗？',
     messageRecalled: '该消息已撤回',
+    systemRecall: '{user} 撤回了一条消息',
 };
 
 export const en = {
@@ -428,4 +429,5 @@ export const en = {
     recall: 'Recall',
     confirmRecall: 'Are you sure you want to recall this message?',
     messageRecalled: 'This message was recalled',
+    systemRecall: '{user} recalled a message',
 };

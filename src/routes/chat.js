@@ -118,7 +118,9 @@ export default async function chatRoutes(fastify, options) {
                 
                 // Broadcast system notification
                 const operatorName = connection.user.nickname || connection.user.username;
-                broadcast({ type: 'system', message: `${operatorName} recalled a message.` });
+                // We should send a structured system message so the frontend can localize it
+                // type: 'system_recall', operator: operatorName
+                broadcast({ type: 'system_recall', operator: operatorName });
             } else {
                 if (socket.readyState === 1) {
                     socket.send(JSON.stringify({ type: 'error', message: 'Permission denied' }));
