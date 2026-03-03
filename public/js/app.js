@@ -121,8 +121,12 @@ createApp({
         const forumTotalPages = ref(1);
         const currentTopic = ref(null);
         const showCreateTopic = ref(false);
+        const isEditingTopic = ref(false);
+        const editingTopicId = ref(null);
         const newTopicForm = ref({ title: '', content: '' });
         const newCommentContent = ref('');
+        const forumSort = ref('newest');
+        const forumFilter = ref('all');
 
         // Chat State
         const chatMessages = ref([]);
@@ -175,7 +179,7 @@ createApp({
         // Forum Functions
         const fetchTopics = async (page = 1) => {
             try {
-                const res = await fetch(`/api/forum/topics?page=${page}`);
+                const res = await fetch(`/api/forum/topics?page=${page}&sort=${forumSort.value}&filter=${forumFilter.value}`);
                 const data = await res.json();
                 topics.value = data.topics;
                 forumPage.value = data.page;
@@ -183,6 +187,16 @@ createApp({
             } catch (e) {
                 console.error('Failed to fetch topics', e);
             }
+        };
+
+        const handleForumSort = (sort) => {
+            forumSort.value = sort;
+            fetchTopics(1);
+        };
+
+        const handleForumFilter = (filter) => {
+            forumFilter.value = filter;
+            fetchTopics(1);
         };
 
         const insertMarkdownAtCursor = (textarea, prefix, suffix = '') => {
@@ -260,20 +274,84 @@ createApp({
         const createTopic = async () => {
             if (!newTopicForm.value.title || !newTopicForm.value.content) return;
             try {
-                const res = await fetchWithAuth('/api/forum/topics', {
-                    method: 'POST',
-                    body: JSON.stringify(newTopicForm.value)
-                });
-                if (res.ok) {
-                    showCreateTopic.value = false;
-                    newTopicForm.value = { title: '', content: '' };
-                    fetchTopics();
+                if (isEditingTopic.value) {
+                    const res = await fetchWithAuth(`/api/forum/topics/${editingTopicId.value}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(newTopicForm.value)
+                    });
+                    if (res.ok) {
+                        showCreateTopic.value = false;
+                        isEditingTopic.value = false;
+                        editingTopicId.value = null;
+                        newTopicForm.value = { title: '', content: '' };
+                        if (currentTopic.value) {
+                            openTopic(currentTopic.value.topic.id);
+                        } else {
+                            fetchTopics(forumPage.value);
+                        }
+                    } else {
+                        alert(t.value.opFailed);
+                    }
                 } else {
-                    alert(t.value.opFailed);
+                    const res = await fetchWithAuth('/api/forum/topics', {
+                        method: 'POST',
+                        body: JSON.stringify(newTopicForm.value)
+                    });
+                    if (res.ok) {
+                        showCreateTopic.value = false;
+                        newTopicForm.value = { title: '', content: '' };
+                        fetchTopics();
+                    } else {
+                        alert(t.value.opFailed);
+                    }
                 }
             } catch (e) {
-                console.error('Failed to create topic', e);
+                console.error('Failed to save topic', e);
             }
+        };
+
+        const openEditTopic = (topic) => {
+            isEditingTopic.value = true;
+            editingTopicId.value = topic.id;
+            newTopicForm.value = { title: topic.title, content: topic.content };
+            showCreateTopic.value = true;
+        };
+
+        const closeCreateTopic = () => {
+            showCreateTopic.value = false;
+            isEditingTopic.value = false;
+            editingTopicId.value = null;
+            newTopicForm.value = { title: '', content: '' };
+        };
+
+        const togglePin = async (id, currentStatus) => {
+            try {
+                const res = await fetchWithAuth(`/api/forum/topics/${id}/pin`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ is_pinned: !currentStatus })
+                });
+                if (res.ok) {
+                    if (currentTopic.value && currentTopic.value.topic.id === id) {
+                        currentTopic.value.topic.is_pinned = !currentStatus ? 1 : 0;
+                    }
+                    fetchTopics(forumPage.value);
+                }
+            } catch (e) { console.error(e); }
+        };
+
+        const toggleFeature = async (id, currentStatus) => {
+            try {
+                const res = await fetchWithAuth(`/api/forum/topics/${id}/feature`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ is_featured: !currentStatus })
+                });
+                if (res.ok) {
+                    if (currentTopic.value && currentTopic.value.topic.id === id) {
+                        currentTopic.value.topic.is_featured = !currentStatus ? 1 : 0;
+                    }
+                    fetchTopics(forumPage.value);
+                }
+            } catch (e) { console.error(e); }
         };
 
         const submitComment = async () => {
@@ -1800,11 +1878,21 @@ createApp({
             forumTotalPages,
             currentTopic,
             showCreateTopic,
+            isEditingTopic,
+            editingTopicId,
             newTopicForm,
             newCommentContent,
+            forumSort,
+            forumFilter,
             fetchTopics,
+            handleForumSort,
+            handleForumFilter,
             openTopic,
             createTopic,
+            openEditTopic,
+            closeCreateTopic,
+            togglePin,
+            toggleFeature,
             submitComment,
             deleteTopic,
             deleteComment,

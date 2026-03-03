@@ -71,9 +71,14 @@ db.run(`
     updated_at INTEGER DEFAULT (strftime('%s', 'now')),
     views INTEGER DEFAULT 0,
     is_pinned INTEGER DEFAULT 0,
+    is_featured INTEGER DEFAULT 0,
     FOREIGN KEY(user_id) REFERENCES users(id)
   )
 `);
+
+try {
+  db.run("ALTER TABLE topics ADD COLUMN is_featured INTEGER DEFAULT 0");
+} catch (e) {}
 
 // Forum Comments Table
 db.run(`

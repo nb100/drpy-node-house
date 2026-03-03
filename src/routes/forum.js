@@ -3,7 +3,7 @@ import db from '../db.js';
 export default async function forumRoutes(fastify, options) {
     // Get all topics (with pagination and optional search)
     fastify.get('/topics', async (request, reply) => {
-        const { page = 1, limit = 10, search = '' } = request.query;
+        const { page = 1, limit = 10, search = '', sort = 'newest', filter = 'all' } = request.query;
         const offset = (page - 1) * limit;
 
         let query = `
@@ -14,18 +14,49 @@ export default async function forumRoutes(fastify, options) {
         `;
         let countQuery = 'SELECT COUNT(*) as count FROM topics t JOIN users u ON t.user_id = u.id';
         const params = [];
+        const whereClauses = [];
 
         if (search) {
-            query += ' WHERE t.title LIKE ? OR t.content LIKE ?';
-            countQuery += ' WHERE t.title LIKE ? OR t.content LIKE ?';
+            whereClauses.push('(t.title LIKE ? OR t.content LIKE ?)');
             params.push(`%${search}%`, `%${search}%`);
         }
+        
+        if (filter === 'featured') {
+            whereClauses.push('t.is_featured = 1');
+        }
 
-        query += ' ORDER BY t.is_pinned DESC, t.updated_at DESC LIMIT ? OFFSET ?';
+        if (whereClauses.length > 0) {
+            const whereClause = ' WHERE ' + whereClauses.join(' AND ');
+            query += whereClause;
+            countQuery += whereClause;
+        }
+
+        // Sorting logic
+        // Default: Pinned first, then by sort criteria
+        let orderBy = ' ORDER BY t.is_pinned DESC';
+        
+        switch (sort) {
+            case 'hottest': // Most views + comments? or just views? Let's use views for now, or a simple heuristic
+                orderBy += ', t.views DESC, comment_count DESC';
+                break;
+            case 'replies':
+                orderBy += ', comment_count DESC';
+                break;
+            case 'newest':
+            default:
+                orderBy += ', t.updated_at DESC';
+                break;
+        }
+        
+        query += orderBy + ' LIMIT ? OFFSET ?';
         params.push(limit, offset);
 
         const topics = db.prepare(query).all(...params);
-        const total = db.prepare(countQuery).get(...params.slice(0, -2)).count;
+        // We need to run count query with ONLY search/filter params, not limit/offset
+        // The params array currently has search params + limit + offset
+        // We need to slice off the last 2 for the count query
+        const countParams = params.slice(0, -2);
+        const total = db.prepare(countQuery).get(...countParams).count;
 
         return {
             topics,
@@ -97,11 +128,66 @@ export default async function forumRoutes(fastify, options) {
 
         const stmt = db.prepare('INSERT INTO comments (topic_id, user_id, content) VALUES (?, ?, ?)');
         stmt.run(id, user_id, content);
-
+        
         // Update topic updated_at
-        db.prepare('UPDATE topics SET updated_at = strftime("%s", "now") WHERE id = ?').run(id);
+        db.prepare('UPDATE topics SET updated_at = strftime(\'%s\', \'now\') WHERE id = ?').run(id);
 
         return { message: 'Comment added successfully' };
+    });
+
+    // Update topic (Auth required)
+    fastify.put('/topics/:id', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+        const { id } = request.params;
+        const { title, content } = request.body;
+        const user_id = request.user.id;
+        const role = request.user.role;
+
+        if (!title || !content) {
+            return reply.code(400).send({ error: 'Title and content are required' });
+        }
+
+        const topic = db.prepare('SELECT user_id FROM topics WHERE id = ?').get(id);
+        if (!topic) {
+            return reply.code(404).send({ error: 'Topic not found' });
+        }
+
+        if (topic.user_id !== user_id && !['admin', 'super_admin'].includes(role)) {
+            return reply.code(403).send({ error: 'Permission denied' });
+        }
+
+        db.prepare('UPDATE topics SET title = ?, content = ?, updated_at = strftime(\'%s\', \'now\') WHERE id = ?').run(title, content, id);
+
+        return { message: 'Topic updated successfully' };
+    });
+
+    // Toggle Pin (Admin only)
+    fastify.patch('/topics/:id/pin', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+        const { id } = request.params;
+        const { is_pinned } = request.body; // boolean or 0/1
+        const role = request.user.role;
+
+        if (!['admin', 'super_admin'].includes(role)) {
+            return reply.code(403).send({ error: 'Permission denied' });
+        }
+
+        db.prepare('UPDATE topics SET is_pinned = ? WHERE id = ?').run(is_pinned ? 1 : 0, id);
+
+        return { message: 'Topic pin status updated' };
+    });
+
+    // Toggle Feature (Admin only)
+    fastify.patch('/topics/:id/feature', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+        const { id } = request.params;
+        const { is_featured } = request.body; // boolean or 0/1
+        const role = request.user.role;
+
+        if (!['admin', 'super_admin'].includes(role)) {
+            return reply.code(403).send({ error: 'Permission denied' });
+        }
+
+        db.prepare('UPDATE topics SET is_featured = ? WHERE id = ?').run(is_featured ? 1 : 0, id);
+
+        return { message: 'Topic feature status updated' };
     });
 
     // Delete topic (Admin or Owner)
