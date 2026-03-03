@@ -15,9 +15,14 @@ createApp({
                     const html = linkRenderer.call(renderer, href, title, text);
                     return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
                 };
+                const imageRenderer = renderer.image;
+                renderer.image = (href, title, text) => {
+                    const html = imageRenderer.call(renderer, href, title, text);
+                    return html.replace(/^<img /, '<img class="max-w-full max-h-[300px] object-contain rounded-lg cursor-pointer hover:scale-[1.02] transition-transform" onclick="window.open(this.src, \'_blank\')" ');
+                };
 
                 const html = marked.parse(text, { breaks: true, renderer });
-                return DOMPurify.sanitize(html, { ADD_ATTR: ['target'] });
+                return DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'onclick', 'class'] });
             } catch (e) {
                 console.error('Markdown parsing error:', e);
                 return text;
@@ -729,7 +734,7 @@ createApp({
             
             try {
                 const res = await uploadSingleFile(file, true, 'chat-image');
-                const url = getDownloadUrl(res.cid);
+                const url = getDownloadUrl(res.cid, true); // Use preview=true
                 const markdownImage = `![${file.name}](${url})`;
                 
                 let currentVal = '';
@@ -792,7 +797,7 @@ createApp({
             
             try {
                 const res = await uploadSingleFile(file, true, 'chat-image');
-                const url = getDownloadUrl(res.cid);
+                const url = getDownloadUrl(res.cid, true); // Use preview=true
                 const markdownImage = `![${file.name}](${url})`;
                 
                 let currentVal = '';
