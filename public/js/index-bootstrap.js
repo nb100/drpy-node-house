@@ -1,6 +1,7 @@
 const fragmentTargets = [
     { id: 'emoji-picker-fragment', url: '/fragments/emoji-picker.html' },
     { id: 'auth-modals-fragment', url: '/fragments/auth-modals.html' },
+    { id: 'forum-overlays-fragment', url: '/fragments/forum-overlays.html' },
     { id: 'main-modals-fragment', url: '/fragments/main-modals.html' }
 ];
 
