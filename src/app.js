@@ -40,6 +40,7 @@ fastify.register(fastifyRateLimit, {
   max: rateLimitMax,
   timeWindow: '1 minute', // per minute
   allowList: (req) => {
+    if (req.url.startsWith('/fragments/')) return true;
     // Exclude static files (images, css, js, fonts)
     if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map)$/i)) return true;
     return false;
