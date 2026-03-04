@@ -1,4 +1,5 @@
 const fragmentTargets = [
+    { id: 'top-header-fragment', url: '/fragments/top-header.html' },
     { id: 'emoji-picker-fragment', url: '/fragments/emoji-picker.html' },
     { id: 'auth-modals-fragment', url: '/fragments/auth-modals.html' },
     { id: 'forum-overlays-fragment', url: '/fragments/forum-overlays.html' },
