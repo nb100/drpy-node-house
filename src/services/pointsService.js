@@ -65,7 +65,7 @@ export const deductPoints = (userId, amount, reason, relatedId = null) => {
 };
 
 export const checkin = (userId) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
   
   const user = db.query('SELECT last_checkin_date FROM users WHERE id = ?').get(userId);
   if (user && user.last_checkin_date === today) {
@@ -97,7 +97,7 @@ export const getUserPointsAndRank = (userId) => {
   if (!user) return null;
   
   const rankInfo = getRank(user.points || 0);
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
   const isCheckedIn = user.last_checkin_date === today;
   
   return {
