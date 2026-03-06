@@ -1,3 +1,7 @@
+const FRAGMENT_LOAD_MODE = 'api_bundle'; // 新模式
+// const FRAGMENT_LOAD_MODE = 'parallel_requests'; // 旧模式
+const FRAGMENT_BUNDLE_URL = '/api/fragments';
+
 const fragmentTargets = [
     { id: 'top-header-fragment', url: '/fragments/top-header.html' },
     { id: 'file-stats-card-fragment', url: '/fragments/file-stats-card.html' },
@@ -11,7 +15,7 @@ const fragmentTargets = [
     { id: 'main-modals-fragment', url: '/fragments/main-modals.html' }
 ];
 
-async function loadFragments() {
+async function loadFragmentsByParallelRequests() {
     await Promise.all(fragmentTargets.map(async ({ id, url }) => {
         const container = document.getElementById(id);
         if (!container) {
@@ -23,6 +27,37 @@ async function loadFragments() {
         }
         container.innerHTML = await response.text();
     }));
+}
+
+async function loadFragmentsByApiBundle() {
+    const response = await fetch(FRAGMENT_BUNDLE_URL);
+    if (!response.ok) {
+        throw new Error(`Failed to load fragment bundle: ${FRAGMENT_BUNDLE_URL}`);
+    }
+    const fragmentMap = await response.json();
+    fragmentTargets.forEach(({ id }) => {
+        const container = document.getElementById(id);
+        if (!container) {
+            return;
+        }
+        const html = fragmentMap[`#${id}`];
+        if (typeof html === 'string') {
+            container.innerHTML = html;
+        }
+    });
+}
+
+async function loadFragments() {
+    if (FRAGMENT_LOAD_MODE === 'parallel_requests') {
+        await loadFragmentsByParallelRequests();
+        return;
+    }
+    try {
+        await loadFragmentsByApiBundle();
+    } catch (error) {
+        console.error(error);
+        await loadFragmentsByParallelRequests();
+    }
 }
 
 async function bootstrap() {

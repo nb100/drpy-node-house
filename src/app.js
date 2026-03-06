@@ -18,8 +18,20 @@ import forumRoutes from './routes/forum.js';
 import chatRoutes from './routes/chat.js';
 import userRoutes from './routes/users.js';
 import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
+const fragmentTargets = [
+  { id: 'top-header-fragment', url: '/fragments/top-header.html' },
+  { id: 'file-stats-card-fragment', url: '/fragments/file-stats-card.html' },
+  { id: 'community-sidebars-fragment', url: '/fragments/community-sidebars.html' },
+  { id: 'footer-fragment', url: '/fragments/footer.html' },
+  { id: 'scroll-buttons-fragment', url: '/fragments/scroll-buttons.html' },
+  { id: 'emoji-picker-fragment', url: '/fragments/emoji-picker.html' },
+  { id: 'auth-modals-fragment', url: '/fragments/auth-modals.html' },
+  { id: 'forum-overlays-fragment', url: '/fragments/forum-overlays.html' },
+  { id: 'main-modals-fragment', url: '/fragments/main-modals.html' }
+];
 
 const fastify = Fastify({
   logger: true,
@@ -114,6 +126,20 @@ fastify.get('/api/config', async (request, reply) => {
   });
   
   return publicConfig;
+});
+
+fastify.get('/api/fragments', async (request, reply) => {
+  try {
+    const entries = await Promise.all(fragmentTargets.map(async ({ id, url }) => {
+      const filePath = path.join(config.paths.public, url.replace(/^\//, ''));
+      const html = await readFile(filePath, 'utf8');
+      return [`#${id}`, html];
+    }));
+    return Object.fromEntries(entries);
+  } catch (err) {
+    request.log.error(err);
+    return reply.code(500).send({ error: 'fragments_load_failed' });
+  }
 });
 
 // Start server
