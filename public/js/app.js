@@ -1116,7 +1116,7 @@ const app = createApp({
             
             try {
                 const res = await uploadSingleFile(file, true, 'chat-image');
-                const url = getDownloadUrl(res.cid, true); // Use preview=true
+                const url = getDownloadUrl(res.cid, true, res.id); // Use preview=true
                 const markdownImage = `![${file.name}](${url})`;
                 
                 let currentVal = '';
@@ -1179,7 +1179,7 @@ const app = createApp({
             
             try {
                 const res = await uploadSingleFile(file, true, 'chat-image');
-                const url = getDownloadUrl(res.cid, true); // Use preview=true
+                const url = getDownloadUrl(res.cid, true, res.id); // Use preview=true
                 const markdownImage = `![${file.name}](${url})`;
                 
                 let currentVal = '';
@@ -1238,7 +1238,7 @@ const app = createApp({
             if (!currentFile.value) return;
             loading.value = true;
             try {
-                const res = await fetch(`/api/files/${currentFile.value.cid}/tags`, {
+                const res = await fetch(`/api/files/${currentFile.value.id}/tags`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1631,7 +1631,7 @@ const app = createApp({
             const targetStatus = file.is_public ? t.value.privateLabel : t.value.publicLabel;
             if (!confirm(t.value.confirmToggle.replace('{status}', targetStatus))) return;
             try {
-                const res = await fetch(`/api/files/${file.cid}/toggle-visibility`, {
+                const res = await fetch(`/api/files/${file.id}/toggle-visibility`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token.value}` }
                 });
@@ -1649,7 +1649,7 @@ const app = createApp({
         const deleteFile = async (file) => {
             if (!confirm(t.value.confirmDelete.replace('{filename}', file.filename))) return;
             try {
-                const res = await fetch(`/api/files/${file.cid}`, {
+                const res = await fetch(`/api/files/${file.id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token.value}` }
                 });
@@ -1801,11 +1801,12 @@ const app = createApp({
             }
         };
 
-        const getDownloadUrl = (cid, preview = false) => {
+        const getDownloadUrl = (cid, preview = false, id = null) => {
             let url = `/api/files/download/${cid}`;
             const params = [];
             if (token.value) params.push(`token=${token.value}`);
             if (preview) params.push('preview=true');
+            if (id) params.push(`id=${id}`);
             
             if (params.length > 0) {
                 url += `?${params.join('&')}`;
@@ -1814,7 +1815,7 @@ const app = createApp({
         };
 
         const getFileDownloadUrl = (file) => {
-            const directUrl = getDownloadUrl(file.cid);
+            const directUrl = getDownloadUrl(file.cid, false, file.id);
             
             if (!user.value || !user.value.download_preference || user.value.download_preference === 'default') {
                 return directUrl;

@@ -87,9 +87,11 @@ export default async function (fastify, opts) {
 
   // Download/Preview file
   // Supports ?preview=true to set Content-Disposition: inline
+  // Supports ?id=... to specify file record
   fastify.get('/download/:cid', async (request, reply) => {
     const { cid } = request.params;
     const isPreview = request.query.preview === 'true';
+    const fileId = request.query.id; // Get file ID if provided
     
     let user = null;
     try {
@@ -115,7 +117,7 @@ export default async function (fastify, opts) {
     }
 
     try {
-      const { stream, filename, mimetype } = await getFileStream(cid, user);
+      const { stream, filename, mimetype } = await getFileStream(cid, user, fileId);
       
       const encodedFilename = encodeURIComponent(filename);
       const dispositionType = isPreview ? 'inline' : 'attachment';
@@ -167,6 +169,7 @@ export default async function (fastify, opts) {
   // Get File Metadata
   fastify.get('/:cid', async (request, reply) => {
     const { cid } = request.params;
+    const fileId = request.query.id; // Get file ID if provided
     let user = null;
     try {
       await request.jwtVerify();
@@ -176,7 +179,7 @@ export default async function (fastify, opts) {
     }
 
     try {
-      return getFile(cid, user ? user.id : null, user ? user.role : 'user');
+      return getFile(cid, user ? user.id : null, user ? user.role : 'user', fileId);
     } catch (err) {
       if (err.message === 'Unauthorized') return reply.code(403).send({ error: 'Unauthorized' });
       if (err.message === 'File not found') return reply.code(404).send({ error: 'File not found' });
@@ -186,12 +189,12 @@ export default async function (fastify, opts) {
   });
 
   // Toggle Visibility
-  fastify.post('/:cid/toggle-visibility', {
+  fastify.post('/:id/toggle-visibility', {
     onRequest: [fastify.authenticate]
   }, async (request, reply) => {
-    const { cid } = request.params;
+    const { id } = request.params;
     try {
-      return toggleVisibility(cid, request.user.id, request.user.role);
+      return toggleVisibility(id, request.user.id, request.user.role);
     } catch (err) {
       if (err.message === 'Unauthorized') return reply.code(403).send({ error: 'Unauthorized' });
       if (err.message === 'File not found') return reply.code(404).send({ error: 'File not found' });
@@ -201,12 +204,12 @@ export default async function (fastify, opts) {
   });
 
   // Delete File
-  fastify.delete('/:cid', {
+  fastify.delete('/:id', {
     onRequest: [fastify.authenticate]
   }, async (request, reply) => {
-    const { cid } = request.params;
+    const { id } = request.params;
     try {
-      return deleteFile(cid, request.user.id, request.user.role);
+      return deleteFile(id, request.user.id, request.user.role);
     } catch (err) {
       if (err.message === 'Unauthorized') return reply.code(403).send({ error: 'Unauthorized' });
       if (err.message === 'File not found') return reply.code(404).send({ error: 'File not found' });
@@ -216,10 +219,10 @@ export default async function (fastify, opts) {
   });
 
   // Update File Tags
-  fastify.put('/:cid/tags', {
+  fastify.put('/:id/tags', {
     onRequest: [fastify.authenticate]
   }, async (request, reply) => {
-    const { cid } = request.params;
+    const { id } = request.params;
     const { tags } = request.body; // Expect array of strings
 
     if (!Array.isArray(tags)) {
@@ -238,7 +241,7 @@ export default async function (fastify, opts) {
     try {
       // Store as comma-separated string
       const tagsString = tags.join(',');
-      return updateFileTags(cid, tagsString, request.user.id, request.user.role);
+      return updateFileTags(id, tagsString, request.user.id, request.user.role);
     } catch (err) {
       if (err.message === 'Unauthorized') return reply.code(403).send({ error: 'Unauthorized' });
       if (err.message === 'File not found') return reply.code(404).send({ error: 'File not found' });

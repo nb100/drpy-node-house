@@ -42,22 +42,43 @@ export async function uploadFile(file, userId = null, isPublic = true, maxSize =
   };
 }
 
-export function getFile(cid, userId = null, userRole = 'user') {
+export function getFile(cid, userId = null, userRole = 'user', fileId = null) {
   const stmt = db.prepare('SELECT * FROM files WHERE cid = ?');
-  const file = stmt.get(cid);
-
-  if (!file) throw new Error('File not found');
-
-  // Check permission
-  if (userRole === 'super_admin') return file;
+  const files = stmt.all(cid);
   
-  if (file.is_public === 0) {
-      if (!userId || file.user_id !== userId) {
-          throw new Error('Unauthorized');
+  if (files.length === 0) throw new Error('File not found');
+
+  // Priority 0: Specific File ID
+  if (fileId) {
+      const specificFile = files.find(f => f.id == fileId);
+      if (specificFile) {
+           // Check permission for this specific file
+           if (specificFile.is_public === 1) return specificFile;
+           if (userId && specificFile.user_id === userId) return specificFile;
+           if (userRole === 'admin' || userRole === 'super_admin') return specificFile;
       }
+      // If found but unauthorized, or not found in this CID group (mismatch?), fall through?
+      // If mismatch (CID doesn't match ID), it won't be in `files`.
+      // If unauthorized, fall through to see if we can give them *another* file? 
+      // See discussion above: Safer to fall through to public version if unauthorized for private specific version.
   }
 
-  return file;
+  // Priority 1: User's own file
+  if (userId) {
+      const ownFile = files.find(f => f.user_id === userId);
+      if (ownFile) return ownFile;
+  }
+
+  // Priority 2: Public file
+  const publicFile = files.find(f => f.is_public === 1);
+  if (publicFile) return publicFile;
+
+  // Priority 3: Admin access
+  if (userRole === 'admin' || userRole === 'super_admin') {
+      return files[0];
+  }
+
+  throw new Error('Unauthorized');
 }
 
 export function listFiles(userId = null, page = 1, limit = 10, search = '', tag = '', userRole = 'user') {
@@ -127,7 +148,7 @@ export function listFiles(userId = null, page = 1, limit = 10, search = '', tag 
   };
 }
 
-export async function getFileStream(cidString, userOrId = null) {
+export async function getFileStream(cidString, userOrId = null, fileId = null) {
   const { fs } = await getHelia();
   const cid = CID.parse(cidString);
   
@@ -141,76 +162,103 @@ export async function getFileStream(cidString, userOrId = null) {
       userId = userOrId;
   }
   
-  // Check permission
+  // Get all files with this CID to correctly handle ownership/visibility
   const stmt = db.prepare('SELECT * FROM files WHERE cid = ?');
-  const fileRecord = stmt.get(cidString);
+  const files = stmt.all(cidString);
+  
+  let fileRecord = null;
+  let authorized = false;
 
-  if (fileRecord) {
-    // If file is private
-    if (fileRecord.is_public === 0) {
-      let authorized = false;
-      
-      // 1. Owner or Admin access
-      if (userId && (fileRecord.user_id === userId || userRole === 'admin' || userRole === 'super_admin')) {
-          authorized = true;
-      }
+  if (files.length > 0) {
+    // 0. Check specific file ID if provided (Highest Priority)
+    if (fileId) {
+        fileRecord = files.find(f => f.id == fileId);
+        if (fileRecord) {
+             // Check permission for this specific file
+             if (fileRecord.is_public === 1) {
+                 authorized = true;
+             } else if (userId && fileRecord.user_id === userId) {
+                 authorized = true;
+             } else if (userRole === 'admin' || userRole === 'super_admin') {
+                 authorized = true;
+             }
+        }
+    }
 
-      // 2. Check if file is linked in a purchased topic
-      if (!authorized && userId) {
+    // If no specific file requested or authorized yet, fall back to priority logic
+    if (!authorized) {
+        // 1. Check if user owns any of these files (Priority 1: User's own file)
+        if (userId) {
+            fileRecord = files.find(f => f.user_id === userId);
+            if (fileRecord) authorized = true;
+        }
+
+        // 2. Check if any file is public (Priority 2: Public file)
+        if (!authorized) {
+            const publicFile = files.find(f => f.is_public === 1);
+            if (publicFile) {
+                fileRecord = publicFile;
+                authorized = true;
+            }
+        }
+
+        // 3. Admin Access
+        if (!authorized && (userRole === 'admin' || userRole === 'super_admin')) {
+            fileRecord = files[0];
+            authorized = true;
+        }
+    }
+
+    // If still not authorized, check other permissions (Topics, Chat)
+    if (!authorized && files.length > 0) {
+      // Use the first file record for metadata reference, but access is still pending
+      const refFile = files[0]; 
+
+      // Check 2: Is file linked in a purchased/free topic?
+      if (userId) {
           // Query: Find topics containing this CID
           const topicsWithFile = db.prepare('SELECT id, user_id, view_permission_level, view_points_required FROM topics WHERE content LIKE ?').all(`%${cidString}%`);
           
           for (const topic of topicsWithFile) {
-              // Check 1: Is user the topic author?
+              // Topic author
               if (topic.user_id === userId) {
                   authorized = true;
+                  fileRecord = refFile;
                   break;
               }
-
-              // Check 2: Is topic free?
+              // Free topic
               if (topic.view_points_required <= 0) {
-                  // If public (level 0), anyone can see
-                  if (topic.view_permission_level <= 0) {
+                  if (topic.view_permission_level <= 0 || userId) {
                       authorized = true;
-                      break;
-                  }
-                  // If login required (level > 0), check if logged in
-                  // Note: We are skipping strict rank check here for performance/simplicity, 
-                  // assuming if they have the link they might have access, or "Login Required" is the main barrier.
-                  // For strict rank check, we would need to fetch user rank.
-                  if (userId) {
-                      authorized = true;
+                      fileRecord = refFile;
                       break;
                   }
               }
-              
-              // Check 3: Has user purchased this topic? (For paid topics)
+              // Purchased topic
               if (topic.view_points_required > 0) {
                   const purchase = db.prepare('SELECT 1 FROM topic_purchases WHERE user_id = ? AND topic_id = ?').get(userId, topic.id);
                   if (purchase) {
                       authorized = true;
+                      fileRecord = refFile;
                       break;
                   }
               }
           }
       }
 
-      // 3. Check if file is linked in chat messages
+      // Check 3: Linked in chat?
       if (!authorized && userId) {
-          // Check if this file CID is present in any chat message
           const chatMessage = db.prepare('SELECT 1 FROM chat_messages WHERE content LIKE ? LIMIT 1').get(`%${cidString}%`);
           if (chatMessage) {
               authorized = true;
+              fileRecord = refFile;
           }
       }
- 
-      if (!authorized) {
-         // Final check: Is it the owner? (Already checked above but let's be strict)
-         if (!userId || fileRecord.user_id !== userId) {
-             throw new Error('Unauthorized access to private file');
-         }
-      }
     }
+  }
+
+  if (files.length > 0 && !authorized) {
+      throw new Error('Unauthorized access to private file');
   }
 
   // Create a stream from Helia
@@ -223,9 +271,9 @@ export async function getFileStream(cidString, userOrId = null) {
   };
 }
 
-export function toggleVisibility(cidString, userId, userRole = 'user') {
-  const stmt = db.prepare('SELECT * FROM files WHERE cid = ?');
-  const file = stmt.get(cidString);
+export function toggleVisibility(id, userId, userRole = 'user') {
+  const stmt = db.prepare('SELECT * FROM files WHERE id = ?');
+  const file = stmt.get(id);
 
   if (!file) throw new Error('File not found');
   if (file.user_id !== userId && userRole !== 'super_admin') throw new Error('Unauthorized');
@@ -237,9 +285,9 @@ export function toggleVisibility(cidString, userId, userRole = 'user') {
   return { ...file, is_public: newStatus };
 }
 
-export async function deleteFile(cidString, userId, userRole = 'user') {
-  const stmt = db.prepare('SELECT * FROM files WHERE cid = ?');
-  const file = stmt.get(cidString);
+export async function deleteFile(id, userId, userRole = 'user') {
+  const stmt = db.prepare('SELECT * FROM files WHERE id = ?');
+  const file = stmt.get(id);
 
   if (!file) throw new Error('File not found');
   if (file.user_id !== userId && userRole !== 'super_admin') throw new Error('Unauthorized');
@@ -251,9 +299,9 @@ export async function deleteFile(cidString, userId, userRole = 'user') {
   return { success: true };
 }
 
-export function updateFileTags(cid, tags, userId, userRole = 'user') {
-    const stmt = db.prepare('SELECT * FROM files WHERE cid = ?');
-    const file = stmt.get(cid);
+export function updateFileTags(id, tags, userId, userRole = 'user') {
+    const stmt = db.prepare('SELECT * FROM files WHERE id = ?');
+    const file = stmt.get(id);
   
     if (!file) throw new Error('File not found');
     if (file.user_id !== userId && userRole !== 'super_admin') throw new Error('Unauthorized');
