@@ -76,36 +76,60 @@
         </div>
         
         <div class="p-4">
-            <div class="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-100 flex justify-between items-center shadow-sm">
-                <div class="flex items-center space-x-4">
-                    <div class="flex flex-col">
-                         <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider">{{ t.rank }}</span>
-                         <span class="text-sm font-bold text-yellow-600 drop-shadow-sm">{{ t.ranks[user.rankLevel || 0] || t.unranked }}</span>
+            <div class="mb-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-2.5 border border-blue-100 shadow-sm">
+                <div class="flex justify-between items-center mb-1.5">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex flex-col">
+                             <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider">{{ t.rank }}</span>
+                             <span class="text-sm font-bold text-yellow-600 drop-shadow-sm">{{ t.ranks[user.rankLevel || 0] || t.unranked }}</span>
+                        </div>
+                        <div class="h-8 w-px bg-blue-200/50"></div>
+                        <div class="flex flex-col group cursor-pointer" @click="fetchPointsHistory" :title="t.viewHistory">
+                             <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider group-hover:text-blue-600 transition-colors">{{ t.points }}</span>
+                             <div class="flex items-center space-x-1">
+                                <span class="text-sm font-bold text-blue-600">{{ user.points || 0 }}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-blue-400 group-hover:text-blue-600 transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                </svg>
+                             </div>
+                        </div>
                     </div>
-                    <div class="h-8 w-px bg-blue-200/50"></div>
-                    <div class="flex flex-col group cursor-pointer" @click="fetchPointsHistory" :title="t.viewHistory">
-                         <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider group-hover:text-blue-600 transition-colors">{{ t.points }}</span>
-                         <div class="flex items-center space-x-1">
-                            <span class="text-sm font-bold text-blue-600">{{ user.points || 0 }}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-blue-400 group-hover:text-blue-600 transition-colors" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    <div>
+                         <button v-if="!user.isCheckedIn" @click="checkin" class="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-lg shadow-md hover:shadow-lg transition-all font-medium flex items-center space-x-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                         </div>
+                            <span>{{ t.checkin }}</span>
+                         </button>
+                         <span v-else class="bg-white text-gray-400 border border-gray-200 text-xs px-3 py-1.5 rounded-lg font-medium shadow-sm flex items-center space-x-1 cursor-default">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            <span>{{ t.checkedIn }}</span>
+                         </span>
                     </div>
                 </div>
-                <div>
-                     <button v-if="!user.isCheckedIn" @click="checkin" class="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-lg shadow-md hover:shadow-lg transition-all font-medium flex items-center space-x-1">
+
+                <!-- Progress Bar -->
+                <div v-if="user.nextRankThreshold" class="mt-2">
+                    <div class="flex justify-between items-end text-xs mb-1">
+                        <span class="text-gray-500 transform scale-90 origin-bottom-left">{{ t.nextRank }}: <span class="font-bold text-blue-600">{{ user.nextRankTitle }}</span></span>
+                        <div class="text-right">
+                             <span class="text-gray-500 font-mono text-[10px]">{{ user.points }}/{{ user.nextRankThreshold }}</span>
+                             <span class="text-[10px] text-blue-400 ml-1">(-{{ user.nextRankThreshold - user.points }})</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-blue-200/50 rounded-full h-1 overflow-hidden">
+                        <div class="bg-blue-500 h-1 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]" :style="{ width: Math.min(100, (user.points / user.nextRankThreshold) * 100) + '%' }"></div>
+                    </div>
+                </div>
+                <div v-else class="mt-2 text-center">
+                    <span class="text-xs text-yellow-600 font-bold flex items-center justify-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                         </svg>
-                        <span>{{ t.checkin }}</span>
-                     </button>
-                     <span v-else class="bg-white text-gray-400 border border-gray-200 text-xs px-3 py-1.5 rounded-lg font-medium shadow-sm flex items-center space-x-1 cursor-default">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                        </svg>
-                        <span>{{ t.checkedIn }}</span>
-                     </span>
+                        {{ t.maxRankReached }}
+                    </span>
                 </div>
             </div>
 

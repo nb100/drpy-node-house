@@ -253,6 +253,9 @@ export const zh = {
     // Points & Rank
     points: '积分',
     rank: '段位',
+    nextRank: '下一段位',
+    pointsToUpgrade: '升级所需',
+    maxRankReached: '已达最高段位',
     checkin: '签到',
     checkedIn: '已签到',
     checkinSuccess: '签到成功！获得 +10 积分',
@@ -594,6 +597,9 @@ export const en = {
     // Points & Rank
     points: 'Points',
     rank: 'Rank',
+    nextRank: 'Next Rank',
+    pointsToUpgrade: 'Points to Upgrade',
+    maxRankReached: 'Max Rank Reached',
     checkin: 'Check-in',
     checkedIn: 'Checked In',
     checkinSuccess: 'Check-in successful! +10 Points',

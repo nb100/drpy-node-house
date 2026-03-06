@@ -13,14 +13,19 @@ const RANKS = [
 
 export const getRank = (points) => {
   let currentRank = RANKS[0];
-  for (const rank of RANKS) {
+  let nextRank = null;
+  
+  for (let i = 0; i < RANKS.length; i++) {
+    const rank = RANKS[i];
     if (points >= rank.threshold) {
       currentRank = rank;
+      nextRank = RANKS[i + 1] || null;
     } else {
       break;
     }
   }
-  return currentRank;
+  
+  return { ...currentRank, nextRank };
 };
 
 export const addPoints = (userId, amount, reason, relatedId = null) => {
@@ -91,14 +96,16 @@ export const getUserPointsAndRank = (userId) => {
   const user = db.query('SELECT points, last_checkin_date FROM users WHERE id = ?').get(userId);
   if (!user) return null;
   
-  const rank = getRank(user.points || 0);
+  const rankInfo = getRank(user.points || 0);
   const today = new Date().toISOString().split('T')[0];
   const isCheckedIn = user.last_checkin_date === today;
   
   return {
     points: user.points || 0,
-    rankLevel: rank.level,
-    rankTitle: rank.title,
+    rankLevel: rankInfo.level,
+    rankTitle: rankInfo.title,
+    nextRankTitle: rankInfo.nextRank ? rankInfo.nextRank.title : null,
+    nextRankThreshold: rankInfo.nextRank ? rankInfo.nextRank.threshold : null,
     isCheckedIn
   };
 };

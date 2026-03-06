@@ -167,6 +167,8 @@ export async function getUserById(userId) {
     const rank = getRank(user.points || 0);
     user.rankLevel = rank.level;
     user.rankTitle = rank.title;
+    user.nextRankTitle = rank.nextRank ? rank.nextRank.title : null;
+    user.nextRankThreshold = rank.nextRank ? rank.nextRank.threshold : null;
     
     const today = new Date().toISOString().split('T')[0];
     user.isCheckedIn = user.last_checkin_date === today;
