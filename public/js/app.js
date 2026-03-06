@@ -2069,6 +2069,31 @@ const app = createApp({
              }
         });
 
+        // Action Menu State
+        const activeMenuFileId = ref(null);
+
+        const toggleFileMenu = (fileId) => {
+            if (activeMenuFileId.value === fileId) {
+                activeMenuFileId.value = null;
+            } else {
+                activeMenuFileId.value = fileId;
+            }
+        };
+
+        const closeFileMenu = () => {
+            activeMenuFileId.value = null;
+        };
+
+        // Close menu when clicking outside
+        onMounted(() => {
+            document.addEventListener('click', (e) => {
+                // If click is not inside a menu button or menu content
+                if (!e.target.closest('.action-menu-btn') && !e.target.closest('.action-menu-content')) {
+                    closeFileMenu();
+                }
+            });
+        });
+
         // Public User Profile Modal
         const showPublicProfileModal = ref(false);
         const publicProfileUser = ref(null);
@@ -2442,6 +2467,9 @@ const app = createApp({
             insertMention,
             closeMentionPopup,
             mentionPopupStyle,
+            activeMenuFileId,
+            toggleFileMenu,
+            closeFileMenu,
             showPublicProfileModal,
             publicProfileUser,
             openPublicProfile,

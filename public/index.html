@@ -386,8 +386,9 @@
                                     <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-500">
                                         {{ formatDate(file.created_at) }}
                                     </td>
-                                    <td class="px-2 py-3 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white/90 backdrop-blur-sm shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)] z-10 group-hover:bg-blue-50/90 transition-colors">
-                                        <div class="flex items-center justify-end space-x-3 opacity-60 group-hover:opacity-100 transition-opacity">
+                                    <td class="px-2 py-3 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white/90 backdrop-blur-sm shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)] group-hover:bg-blue-50/90 transition-colors" :class="activeMenuFileId === file.id ? 'z-50' : 'z-10'">
+                                        <div class="flex items-center justify-end space-x-3 opacity-60 group-hover:opacity-100 transition-opacity relative">
+                                            <!-- Preview -->
                                             <a v-if="canPreview" :href="getDownloadUrl(file.cid, true, file.id)" target="_blank" class="text-teal-600 hover:text-teal-800 transition-colors" :title="t.preview">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -400,6 +401,7 @@
                                                 </svg>
                                             </span>
 
+                                            <!-- Download -->
                                             <a v-if="canDownload" :href="getFileDownloadUrl(file)" target="_blank" class="text-blue-600 hover:text-blue-800 transition-colors" :title="t.download">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -412,26 +414,69 @@
                                                 </svg>
                                             </span>
 
-                                            <template v-if="isOwner(file)">
-                                                <button @click="openTagModal(file)" class="text-blue-500 hover:text-blue-700 transition-colors" :title="t.tags">
+                                            <!-- Menu Action -->
+                                            <div v-if="isOwner(file)" class="relative">
+                                                <button @click.stop="toggleFileMenu(file.id)" class="action-menu-btn p-1.5 rounded-full transition-all duration-200 outline-none focus:ring-2 focus:ring-purple-100" :class="activeMenuFileId === file.id ? 'bg-purple-50 text-purple-600 ring-2 ring-purple-100' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                                                     </svg>
                                                 </button>
-                                                <button @click="toggleVisibility(file)" class="text-amber-500 hover:text-amber-700 transition-colors" :title="file.is_public ? t.makePrivate : t.makePublic">
-                                                    <svg v-if="file.is_public" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                                    </svg>
-                                                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                                                    </svg>
-                                                </button>
-                                                <button @click="deleteFile(file)" class="text-red-500 hover:text-red-700 transition-colors" :title="t.delete">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </template>
+                                                
+                                                <!-- Dropdown Menu -->
+                                                <transition
+                                                    enter-active-class="transition ease-out duration-100"
+                                                    enter-from-class="transform opacity-0 scale-95"
+                                                    enter-to-class="transform opacity-100 scale-100"
+                                                    leave-active-class="transition ease-in duration-75"
+                                                    leave-from-class="transform opacity-100 scale-100"
+                                                    leave-to-class="transform opacity-0 scale-95"
+                                                >
+                                                    <div v-if="activeMenuFileId === file.id" class="action-menu-content absolute right-0 mt-1 w-36 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl ring-1 ring-black/5 border border-gray-100 z-50 overflow-hidden origin-top-right">
+                                                        <div class="py-1">
+                                                            <!-- Tags -->
+                                                            <button @click="openTagModal(file); closeFileMenu()" class="group w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center transition-colors">
+                                                                <span class="p-1 rounded bg-blue-50 text-blue-500 group-hover:bg-blue-100 group-hover:text-blue-600 mr-2 transition-colors">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                                                    </svg>
+                                                                </span>
+                                                                {{ t.tags }}
+                                                            </button>
+                                                            
+                                                            <!-- Visibility -->
+                                                            <button @click="toggleVisibility(file); closeFileMenu()" class="group w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 flex items-center transition-colors">
+                                                                <template v-if="file.is_public">
+                                                                    <span class="p-1 rounded bg-amber-50 text-amber-500 group-hover:bg-amber-100 group-hover:text-amber-600 mr-2 transition-colors">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                                        </svg>
+                                                                    </span>
+                                                                    {{ t.makePrivate }}
+                                                                </template>
+                                                                <template v-else>
+                                                                    <span class="p-1 rounded bg-amber-50 text-amber-500 group-hover:bg-amber-100 group-hover:text-amber-600 mr-2 transition-colors">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                                                        </svg>
+                                                                    </span>
+                                                                    {{ t.makePublic }}
+                                                                </template>
+                                                            </button>
+                                                            
+                                                            <!-- Delete -->
+                                                            <div class="my-0.5 border-t border-gray-50"></div>
+                                                            <button @click="deleteFile(file); closeFileMenu()" class="group w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center transition-colors">
+                                                                <span class="p-1 rounded bg-red-50 text-red-500 group-hover:bg-red-100 group-hover:text-red-600 mr-2 transition-colors">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                </span>
+                                                                {{ t.delete }}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </transition>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
