@@ -431,7 +431,7 @@
                                                     leave-from-class="transform opacity-100 scale-100"
                                                     leave-to-class="transform opacity-0 scale-95"
                                                 >
-                                                    <div v-if="activeMenuFileId === file.id" class="action-menu-content absolute right-0 mt-1 w-36 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl ring-1 ring-black/5 border border-gray-100 z-50 overflow-hidden origin-top-right">
+                                                    <div v-if="activeMenuFileId === file.id" :class="[index < 3 ? 'mt-1 origin-top-right' : 'bottom-full mb-1 origin-bottom-right']" class="action-menu-content absolute right-0 w-36 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl ring-1 ring-black/5 border border-gray-100 z-50 overflow-hidden">
                                                         <div class="py-1">
                                                             <!-- Tags -->
                                                             <button @click="openTagModal(file); closeFileMenu()" class="group w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center transition-colors">
