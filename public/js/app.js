@@ -1086,7 +1086,15 @@ const app = createApp({
             
             // Check file size
             const maxSize = uploadConfig.value.max_file_size;
-            if (file.size > maxSize) {
+            const isCompressionEnabled = uploadConfig.value.image_compression_enabled === 'true';
+            const isImage = file.type.startsWith('image/');
+
+            if (isImage && isCompressionEnabled) {
+                 if (file.size > 52428800) { // 50MB safety cap
+                      alert(t.value.fileTooLarge.replace('{filename}', file.name).replace('{maxSize}', '50MB'));
+                      return;
+                 }
+            } else if (file.size > maxSize) {
                 alert(t.value.fileTooLarge.replace('{filename}', file.name).replace('{maxSize}', formatSize(maxSize)));
                 return;
             }
@@ -1131,7 +1139,7 @@ const app = createApp({
                 
             } catch (e) {
                 console.error(e);
-                alert(t.value.uploadFailed);
+                alert(e.message || t.value.uploadFailed);
                 
                 let currentVal = '';
                 if (targetType === 'chat') currentVal = chatInput.value;
@@ -1151,7 +1159,15 @@ const app = createApp({
 
             // Check file size
             const maxSize = uploadConfig.value.max_file_size;
-            if (file.size > maxSize) {
+            const isCompressionEnabled = uploadConfig.value.image_compression_enabled === 'true';
+            const isImage = file.type.startsWith('image/');
+            
+            if (isImage && isCompressionEnabled) {
+                 if (file.size > 52428800) { // 50MB safety cap
+                      alert(t.value.fileTooLarge.replace('{filename}', file.name).replace('{maxSize}', '50MB'));
+                      return;
+                 }
+            } else if (file.size > maxSize) {
                 alert(t.value.fileTooLarge.replace('{filename}', file.name).replace('{maxSize}', formatSize(maxSize)));
                 return;
             }
@@ -1200,7 +1216,7 @@ const app = createApp({
 
             } catch (e) {
                 console.error(e);
-                alert(t.value.uploadFailed);
+                alert(e.message || t.value.uploadFailed);
                 
                 let currentVal = '';
                 if (targetType === 'chat') currentVal = chatInput.value;
@@ -1579,6 +1595,7 @@ const app = createApp({
             
             const allowed = uploadConfig.value.allowed_extensions.split(',').map(e => e.trim().toLowerCase());
             const maxSize = uploadConfig.value.max_file_size;
+            const isCompressionEnabled = uploadConfig.value.image_compression_enabled === 'true';
             
             const validFiles = [];
             const errors = [];
@@ -1586,7 +1603,15 @@ const app = createApp({
             for (const file of files) {
                 const ext = '.' + file.name.split('.').pop().toLowerCase();
                 const isExtValid = allowed.includes(ext);
-                const isSizeValid = file.size <= maxSize;
+                
+                const isImage = file.type.startsWith('image/');
+                let isSizeValid = file.size <= maxSize;
+                
+                if (isImage && isCompressionEnabled) {
+                     if (file.size <= 52428800) { // 50MB safety cap
+                          isSizeValid = true;
+                     }
+                }
                 
                 if (!isExtValid) {
                     errors.push(t.value.fileTypeNotAllowed.replace('{filename}', file.name));
@@ -1611,6 +1636,7 @@ const app = createApp({
             uploading.value = true;
             let successCount = 0;
             let failCount = 0;
+            let errorMessages = [];
 
             for (let i = 0; i < fileList.length; i++) {
                 const file = fileList[i];
@@ -1624,6 +1650,7 @@ const app = createApp({
                 } catch (e) {
                     console.error(`Failed to upload ${file.name}`, e);
                     failCount++;
+                    errorMessages.push(`${file.name}: ${e.message}`);
                 }
             }
             
@@ -1633,7 +1660,11 @@ const app = createApp({
             await fetchFiles();
             
             if (failCount > 0) {
-                alert(`${t.value.uploadFailed}: ${successCount} success, ${failCount} failed.`);
+                if (failCount === 1 && errorMessages.length > 0) {
+                     alert(errorMessages[0]);
+                } else {
+                     alert(`${t.value.uploadFailed}: ${successCount} success, ${failCount} failed.\n${errorMessages.slice(0, 3).join('\n')}${errorMessages.length > 3 ? '\n...' : ''}`);
+                }
             }
         };
 

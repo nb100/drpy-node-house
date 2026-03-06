@@ -55,7 +55,7 @@ export default async function (fastify, opts) {
       return result;
     } catch (err) {
       request.log.error(err);
-      if (err.message.includes('File too large')) {
+      if (err.message.includes('File too large') || err.message.includes('过大')) {
         return reply.code(413).send({ error: err.message });
       }
       return reply.code(500).send({ error: 'Upload failed' });

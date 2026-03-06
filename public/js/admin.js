@@ -31,6 +31,7 @@ createApp({
             registration_policy: 'open',
             allowed_extensions: '.json,.txt,.py,.php,.js,.m3u',
             max_file_size: 204800,
+            image_compression_enabled: 'true',
             allowed_tags: 'ds,dr2,catvod,php,hipy,json,jx,优,失效,密',
             anonymous_upload: 'false',
             anonymous_preview: 'false',

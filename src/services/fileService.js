@@ -1,24 +1,82 @@
 import { getHelia } from '../ipfs.js';
 import db from '../db.js';
 import { CID } from 'multiformats/cid';
+import sharp from 'sharp';
+import { getUploadConfig } from './authService.js';
 
 export async function uploadFile(file, userId = null, isPublic = true, maxSize = 0, tags = '') {
   const { fs } = await getHelia();
   
+  // Get config for compression check
+  const config = await getUploadConfig();
+  const isCompressionEnabled = config.image_compression_enabled === 'true';
+  const isImage = file.mimetype.startsWith('image/');
+
   const chunks = [];
   let totalSize = 0;
 
   for await (const chunk of file.file) {
     totalSize += chunk.length;
-    if (maxSize > 0 && totalSize > maxSize) {
-      // Consume remaining stream to avoid issues? Or just throw.
-      // Throwing might leave the stream open, but we are inside an async iterator.
-      throw new Error(`File too large. Max size: ${maxSize} bytes`);
+    
+    // Only enforce size limit during stream if compression is NOT enabled or NOT an image
+    // If compression is enabled, we need to wait for the full buffer to compress and check size then
+    if (maxSize > 0 && !isCompressionEnabled && !isImage && totalSize > maxSize) {
+      throw new Error(`文件体积过大。当前体积已超过限制: ${(maxSize / 1024).toFixed(2)} KB`);
     }
+    
+    // Safety cap for memory usage if waiting for compression (e.g. 50MB hard limit or 2x maxSize)
+    // To prevent OOM attacks if someone uploads a 10GB file hoping it compresses to 500KB
+    if (maxSize > 0 && (isCompressionEnabled && isImage) && totalSize > (Math.max(maxSize * 2, 52428800))) {
+         throw new Error(`文件过大无法处理，超出安全限制。`);
+    }
+
     chunks.push(chunk);
   }
   const buffer = Buffer.concat(chunks);
-  const content = new Uint8Array(buffer);
+  
+  // Image Compression Logic
+  let finalBuffer = buffer;
+  try {
+    if (isCompressionEnabled && isImage) {
+        const image = sharp(buffer);
+        const metadata = await image.metadata();
+        
+        // Skip small images (e.g. < 10KB) to avoid overhead
+        if (buffer.length > 10240) {
+            let processed = null;
+            
+            if (metadata.format === 'jpeg' || metadata.format === 'jpg') {
+                processed = image.jpeg({ quality: 80, mozjpeg: true });
+            } else if (metadata.format === 'png') {
+                processed = image.png({ compressionLevel: 6, palette: true });
+            } else if (metadata.format === 'webp') {
+                processed = image.webp({ quality: 80 });
+            }
+            
+            // Only process supported formats and skip animated GIFs for safety unless we handle them specifically
+            if (processed && (!metadata.pages || metadata.pages <= 1)) {
+                const compressedBuffer = await processed.toBuffer();
+                if (compressedBuffer.length < buffer.length) {
+                    console.log(`[Image Compression] ${file.filename}: ${buffer.length} -> ${compressedBuffer.length} bytes (-${Math.round((1 - compressedBuffer.length / buffer.length) * 100)}%)`);
+                    finalBuffer = compressedBuffer;
+                }
+            }
+        }
+    }
+  } catch (e) {
+    console.error('[Image Compression Error]', e);
+    // Continue with original buffer
+  }
+
+  // Final Size Check
+  if (maxSize > 0 && finalBuffer.length > maxSize) {
+      if (isImage && isCompressionEnabled) {
+         throw new Error(`图片压缩后体积仍然过大。原始体积: ${(buffer.length / 1024).toFixed(2)} KB，压缩后体积: ${(finalBuffer.length / 1024).toFixed(2)} KB，最大限制: ${(maxSize / 1024).toFixed(2)} KB`);
+      }
+      throw new Error(`文件体积过大。当前体积: ${(finalBuffer.length / 1024).toFixed(2)} KB，最大限制: ${(maxSize / 1024).toFixed(2)} KB`);
+  }
+
+  const content = new Uint8Array(finalBuffer);
 
   const cid = await fs.addBytes(content);
   const cidString = cid.toString();
