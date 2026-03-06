@@ -81,7 +81,18 @@ export function getFile(cid, userId = null, userRole = 'user', fileId = null) {
   throw new Error('Unauthorized');
 }
 
-export function listFiles(userId = null, page = 1, limit = 10, search = '', tag = '', userRole = 'user') {
+export function getUploaders() {
+  const stmt = db.prepare(`
+    SELECT DISTINCT u.id, u.username, u.nickname 
+    FROM users u 
+    JOIN files f ON u.id = f.user_id 
+    WHERE f.is_public = 1
+    ORDER BY u.nickname ASC, u.username ASC
+  `);
+  return stmt.all();
+}
+
+export function listFiles(userId = null, page = 1, limit = 10, search = '', tag = '', userRole = 'user', uploaders = []) {
   // Base query condition
   // We need to handle complex logic: (is_public OR is_owner) AND (filename LIKE %search%)
   
@@ -114,6 +125,12 @@ export function listFiles(userId = null, page = 1, limit = 10, search = '', tag 
   } else {
     // Exclude hidden files by default if no tag is specified
     whereClause += " AND (tags IS NULL OR tags NOT LIKE '%chat-image%')";
+  }
+
+  if (uploaders && uploaders.length > 0) {
+    const placeholders = uploaders.map(() => '?').join(',');
+    whereClause += ` AND user_id IN (${placeholders})`;
+    params.push(...uploaders);
   }
 
   // Count total items

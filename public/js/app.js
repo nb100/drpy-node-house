@@ -91,6 +91,9 @@ const app = createApp({
         const searchQuery = ref('');
         const filterTags = ref([]);
         const showFilterTagDropdown = ref(false);
+        const filterUploaders = ref([]);
+        const showFilterUploaderDropdown = ref(false);
+        const uploadersList = ref([]);
         
         const uploading = ref(false);
         const uploadStatusText = ref('');
@@ -1410,7 +1413,7 @@ const app = createApp({
                 if (token.value) {
                     headers['Authorization'] = `Bearer ${token.value}`;
                 }
-                const res = await fetch(`/api/files/list?page=${currentPage.value}&limit=${itemsPerPage.value}&search=${encodeURIComponent(searchQuery.value)}&tag=${encodeURIComponent(filterTags.value.join(','))}`, { headers });
+                const res = await fetch(`/api/files/list?page=${currentPage.value}&limit=${itemsPerPage.value}&search=${encodeURIComponent(searchQuery.value)}&tag=${encodeURIComponent(filterTags.value.join(','))}&uploader=${encodeURIComponent(filterUploaders.value.join(','))}`, { headers });
                 if (res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data)) {
@@ -1428,6 +1431,41 @@ const app = createApp({
             } catch (e) {
                 console.error('Failed to fetch files', e);
             }
+        };
+
+        const fetchUploaders = async () => {
+             try {
+                 const res = await fetch('/api/files/uploaders');
+                 if (res.ok) {
+                     uploadersList.value = await res.json();
+                 }
+             } catch (e) {
+                 console.error('Failed to fetch uploaders', e);
+             }
+        };
+
+        const toggleFilterUploader = (userId) => {
+            if (userId === 'all') {
+                filterUploaders.value = [];
+            } else if (userId === 'me') {
+                if (!user.value) return;
+                const myId = user.value.id;
+                const index = filterUploaders.value.indexOf(myId);
+                if (index > -1) {
+                    filterUploaders.value.splice(index, 1);
+                } else {
+                    filterUploaders.value.push(myId);
+                }
+            } else {
+                const index = filterUploaders.value.indexOf(userId);
+                if (index > -1) {
+                    filterUploaders.value.splice(index, 1);
+                } else {
+                    filterUploaders.value.push(userId);
+                }
+            }
+            currentPage.value = 1;
+            fetchFiles();
         };
 
         const changePage = (page) => {
@@ -2303,6 +2341,7 @@ const app = createApp({
                 }
             });
             
+            fetchUploaders();
             fetchFiles();
         });
 
@@ -2346,6 +2385,13 @@ const app = createApp({
             searchQuery,
             filterTags,
             showFilterTagDropdown,
+            
+            // Uploaders Filter
+            filterUploaders,
+            showFilterUploaderDropdown,
+            uploadersList,
+            toggleFilterUploader,
+
             totalItems,
             currentPage,
             itemsPerPage,

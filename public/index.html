@@ -207,22 +207,63 @@
             <div v-if="currentView === 'files'" class="lg:col-span-8 lg:h-full lg:overflow-hidden flex-1 min-h-0 flex flex-col lg:h-full">
                 <div class="glass-panel rounded-2xl shadow-sm overflow-hidden flex flex-col h-full">
                     <div class="p-2 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center bg-white/50 file-list-header flex-shrink-0 gap-2 md:gap-0">
-                        <h2 class="text-base md:text-lg font-bold text-gray-800 flex items-center w-full md:w-auto justify-center md:justify-start">
+                        <h2 class="text-base md:text-lg font-bold text-gray-800 flex items-center w-full md:w-auto justify-center md:justify-start whitespace-nowrap flex-shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                             </svg>
                             {{ t.filesTitle }}
                         </h2>
                         
-                        <div class="grid grid-cols-12 gap-2 w-full md:flex md:w-auto md:items-center md:justify-end md:gap-2">
+                        <div class="grid grid-cols-12 gap-2 w-full md:flex md:flex-wrap md:w-auto md:items-center md:justify-end md:gap-2">
+                            <!-- Uploader Filter (Multi-select) -->
+                            <div class="col-span-6 md:w-auto relative group" v-if="uploadersList.length > 0 || user">
+                                <button 
+                                    @click="showFilterUploaderDropdown = !showFilterUploaderDropdown" 
+                                    class="flex items-center justify-between w-full md:w-28 px-2 h-8 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer hover:bg-white"
+                                    :title="filterUploaders.length > 0 ? (filterUploaders.length + ' selected') : (t.allUploaders || 'All Users')"
+                                >
+                                    <span class="truncate block text-left" :class="filterUploaders.length === 0 ? 'text-gray-500' : 'text-gray-800'">
+                                        {{ filterUploaders.length === 0 ? (t.allUploaders || 'Users') : (filterUploaders.length === 1 && user && filterUploaders[0] === user.id ? (t.myFiles || 'My Files') : filterUploaders.length + ' selected') }}
+                                    </span>
+                                    <svg class="w-3 h-3 ml-1 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                                
+                                <!-- Dropdown -->
+                                <div v-if="showFilterUploaderDropdown" class="absolute top-full left-0 mt-1 w-full md:w-48 bg-white border border-gray-100 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto p-2">
+                                    <label class="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer">
+                                        <input type="checkbox" :checked="filterUploaders.length === 0" @change="toggleFilterUploader('all')" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2">
+                                        <span class="text-sm text-gray-700">{{ t.allUploaders || 'All Users' }}</span>
+                                    </label>
+                                    <div class="h-px bg-gray-100 my-1"></div>
+                                    <template v-if="user">
+                                        <label class="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer">
+                                            <input type="checkbox" :value="user.id" :checked="filterUploaders.includes(user.id)" @change="toggleFilterUploader('me')" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2">
+                                            <span class="text-sm text-gray-700 font-medium">{{ t.myFiles || 'My Files' }}</span>
+                                        </label>
+                                        <div class="h-px bg-gray-100 my-1"></div>
+                                    </template>
+                                    
+                                    <label v-for="u in uploadersList" :key="u.id" class="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer">
+                                        <input type="checkbox" :value="u.id" :checked="filterUploaders.includes(u.id)" @change="toggleFilterUploader(u.id)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2">
+                                        <span class="text-sm text-gray-700">{{ u.nickname || u.username }}</span>
+                                    </label>
+                                </div>
+                                
+                                <!-- Overlay to close -->
+                                <div v-if="showFilterUploaderDropdown" @click="showFilterUploaderDropdown = false" class="fixed inset-0 z-40 cursor-default"></div>
+                            </div>
+
                             <!-- Tag Filter (Multi-select) -->
-                            <div class="col-span-5 md:w-auto relative group" v-if="allowedTags.length > 0">
+                            <div class="col-span-6 md:w-auto relative group" v-if="allowedTags.length > 0">
                                 <button 
                                     @click="showFilterTagDropdown = !showFilterTagDropdown" 
-                                    class="flex items-center justify-between w-full md:w-40 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer hover:bg-white"
+                                    class="flex items-center justify-between w-full md:w-28 px-2 h-8 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer hover:bg-white"
+                                    :title="filterTags.length > 0 ? filterTags.join(', ') : (t.allTags || 'All Tags')"
                                 >
                                     <span class="truncate block text-left" :class="filterTags.length === 0 ? 'text-gray-500' : 'text-gray-800'">
-                                        {{ filterTags.length === 0 ? (t.allTags || 'All Tags') : filterTags.join(', ') }}
+                                        {{ filterTags.length === 0 ? (t.allTags || 'Tags') : (filterTags.length === 1 ? filterTags[0] : filterTags.length + ' tags') }}
                                     </span>
                                     <svg class="w-3 h-3 ml-1 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -254,8 +295,8 @@
                             </div>
 
                             <!-- Search Box -->
-                            <form @submit.prevent="handleSearch" class="col-span-7 md:w-auto relative group">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <form @submit.prevent="handleSearch" class="col-span-12 md:w-auto relative group flex-1 md:flex-none">
+                                <div class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                                     <svg class="h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
@@ -266,7 +307,7 @@
                                     type="search"
                                     enterkeyhint="search"
                                     :placeholder="t.searchPlaceholder" 
-                                    class="pl-9 pr-8 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 focus:bg-white w-full md:w-32 lg:w-48 transition-all"
+                                    class="pl-7 pr-8 h-8 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 focus:bg-white w-full md:w-32 transition-all"
                                 >
                                 <button 
                                     v-if="searchQuery" 
@@ -280,45 +321,48 @@
                                 </button>
                             </form>
 
-                            <!-- Pagination Controls (Top) -->
-                            <div class="col-span-10 md:w-auto flex items-center justify-between md:justify-start space-x-2 text-sm text-gray-600" v-if="totalPages > 1 || totalItems > 0">
-                                <select v-model="itemsPerPage" @change="changeItemsPerPage" class="bg-white border border-gray-200 text-gray-700 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 py-1.5 px-2 w-auto min-w-[70px]">
-                                    <option :value="10">10 / {{ t.page || 'Page' }}</option>
-                                    <option :value="20">20 / {{ t.page || 'Page' }}</option>
-                                    <option :value="30">30 / {{ t.page || 'Page' }}</option>
-                                    <option :value="50">50 / {{ t.page || 'Page' }}</option>
-                                    <option :value="100">100 / {{ t.page || 'Page' }}</option>
-                                </select>
-                                <span class="text-xs hidden sm:inline-block">{{ currentPage }} / {{ totalPages }}</span>
-                                <div class="flex items-center space-x-1">
-                                    <button 
-                                        @click="changePage(currentPage - 1)" 
-                                        :disabled="currentPage === 1"
-                                        class="p-1 rounded-md bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                        :title="t.previous"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                                        </svg>
-                                    </button>
-                                    <button 
-                                        @click="changePage(currentPage + 1)" 
-                                        :disabled="currentPage === totalPages"
-                                        class="p-1 rounded-md bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                        :title="t.next"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </button>
+                            <!-- Pagination & Refresh Wrapper -->
+                            <div class="col-span-12 md:w-auto flex items-center justify-between md:justify-start gap-2 border-t md:border-t-0 pt-2 md:pt-0 border-gray-100">
+                                <!-- Pagination Controls -->
+                                <div class="flex items-center space-x-2 text-sm text-gray-600" v-if="totalPages > 1 || totalItems > 0">
+                                    <select v-model="itemsPerPage" @change="changeItemsPerPage" class="bg-white border border-gray-200 text-gray-700 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 h-8 px-2 w-auto min-w-[80px]">
+                                        <option :value="10">10 / {{ t.page || 'Page' }}</option>
+                                        <option :value="20">20 / {{ t.page || 'Page' }}</option>
+                                        <option :value="30">30 / {{ t.page || 'Page' }}</option>
+                                        <option :value="50">50 / {{ t.page || 'Page' }}</option>
+                                        <option :value="100">100 / {{ t.page || 'Page' }}</option>
+                                    </select>
+                                    <span class="text-xs hidden sm:inline-block whitespace-nowrap">{{ currentPage }} / {{ totalPages }}</span>
+                                    <div class="flex items-center space-x-1">
+                                        <button 
+                                            @click="changePage(currentPage - 1)" 
+                                            :disabled="currentPage === 1"
+                                            class="h-8 w-8 flex items-center justify-center rounded-md bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                            :title="t.previous"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                            </svg>
+                                        </button>
+                                        <button 
+                                            @click="changePage(currentPage + 1)" 
+                                            :disabled="currentPage === totalPages"
+                                            class="h-8 w-8 flex items-center justify-center rounded-md bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                            :title="t.next"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <button @click="fetchFiles" class="col-span-2 md:w-auto p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors flex justify-center items-center" :title="t.refresh">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                            </button>
+                                <button @click="fetchFiles" class="h-8 w-8 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors flex justify-center items-center ml-auto md:ml-0" :title="t.refresh">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     

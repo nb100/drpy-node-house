@@ -1,4 +1,4 @@
-import { uploadFile, listFiles, getFile, getFileStream, toggleVisibility, deleteFile, updateFileTags } from '../services/fileService.js';
+import { uploadFile, listFiles, getFile, getFileStream, toggleVisibility, deleteFile, updateFileTags, getUploaders } from '../services/fileService.js';
 import { getUploadConfig } from '../services/authService.js';
 import path from 'path';
 
@@ -76,14 +76,31 @@ export default async function (fastify, opts) {
     const limit = parseInt(request.query.limit) || 10;
     const search = request.query.search || '';
     const tag = request.query.tag || '';
+    const uploader = request.query.uploader || '';
+
+    let uploaders = [];
+    if (uploader) {
+        uploaders = uploader.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+    }
 
     try {
-      return listFiles(user ? user.id : null, page, limit, search, tag, user ? user.role : 'user');
+      return listFiles(user ? user.id : null, page, limit, search, tag, user ? user.role : 'user', uploaders);
     } catch (err) {
       request.log.error(err);
       return reply.code(500).send({ error: 'Fetch list failed' });
     }
   });
+
+  // Get uploaders list
+  fastify.get('/uploaders', async (request, reply) => {
+    try {
+      return getUploaders();
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to fetch uploaders' });
+    }
+  });
+
 
   // Download/Preview file
   // Supports ?preview=true to set Content-Disposition: inline
