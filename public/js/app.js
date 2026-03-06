@@ -700,17 +700,15 @@ const app = createApp({
         const getScrollContainer = () => {
             let el = null;
             if (currentView.value === 'chat') {
-                el = chatContainer.value;
-                if (!el) el = document.getElementById('chat-container');
+                el = chatContainer.value || document.getElementById('chat-container');
             } else if (currentView.value === 'forum') {
                 if (currentTopic.value) {
-                    el = forumDetailContainer.value;
-                    if (!el) el = document.getElementById('forum-detail-container');
+                    el = forumDetailContainer.value || document.getElementById('forum-detail-container');
                 } else {
-                    el = forumListContainer.value;
-                    if (!el) el = document.getElementById('forum-list-container');
+                    el = forumListContainer.value || document.getElementById('forum-list-container');
                 }
             }
+            console.log('getScrollContainer:', currentView.value, el ? el.id : 'null', el ? {scrollHeight: el.scrollHeight, scrollTop: el.scrollTop, clientHeight: el.clientHeight} : '');
             return el;
         };
 
@@ -722,9 +720,12 @@ const app = createApp({
 
             const el = getScrollContainer();
             if (el) {
-                // Use scrollTop which is widely supported
-                // Smooth behavior is handled by CSS 'scroll-smooth' class
-                el.scrollTop = 0;
+                // Use scrollTo with smooth behavior if supported
+                if (typeof el.scrollTo === 'function') {
+                    el.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    el.scrollTop = 0;
+                }
             } else {
                 console.warn('Scroll target not found for view:', currentView.value);
             }
@@ -738,7 +739,11 @@ const app = createApp({
 
             const el = getScrollContainer();
             if (el) {
-                el.scrollTop = el.scrollHeight;
+                if (typeof el.scrollTo === 'function') {
+                    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                } else {
+                    el.scrollTop = el.scrollHeight;
+                }
             } else {
                 console.warn('Scroll target not found for view:', currentView.value);
             }
