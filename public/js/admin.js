@@ -41,6 +41,7 @@ createApp({
             site_copyright: '',
             site_icp: '',
             notification_limit: 10,
+            leaderboard_limit: 10,
             notification_templates: JSON.stringify({
                 'register_approval': {
                     'en': { title: 'New Registration Request', message: 'User {{username}} has registered and requires approval.' },
@@ -188,6 +189,8 @@ createApp({
                 if (data.max_file_size) data.max_file_size = parseInt(data.max_file_size);
                 // Ensure chat_interval is number
                 if (data.chat_interval) data.chat_interval = parseInt(data.chat_interval);
+                // Ensure leaderboard_limit is number
+                if (data.leaderboard_limit) data.leaderboard_limit = parseInt(data.leaderboard_limit);
                 settings.value = { ...settings.value, ...data };
 
                 // Ensure notification_templates is formatted

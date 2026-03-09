@@ -58,6 +58,9 @@ export const DEFAULT_SETTINGS = {
     // Notifications
     notification_limit: 10,
     
+    // Leaderboard
+    leaderboard_limit: 10,
+    
     // Chat
     chat_interval: 10, // Seconds between messages per user
 
