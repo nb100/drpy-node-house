@@ -37,7 +37,24 @@
 *   **Runtime**: [Bun](https://bun.sh)
 *   **Backend**: Fastify, @fastify/jwt, @fastify/multipart, SQLite (bun:sqlite)
 *   **Storage**: Helia (IPFS), Blockstore/Datastore FS
+*   **Database**: SQLite (bun:sqlite) + Drizzle ORM
 *   **Frontend**: Vue 3 (ESM via Import Map), Tailwind CSS (CDN), Native HTML5 Drag & Drop API
+
+## 🗄️ 数据库管理
+
+本项目使用 [Drizzle ORM](https://orm.drizzle.team/) 进行数据库操作和迁移管理。
+
+### 常用命令
+
+*   **生成迁移文件** (根据 `src/schema.js` 的变更生成 SQL):
+    ```bash
+    bun run db:generate
+    ```
+
+*   **执行数据库迁移** (使用 `bun:sqlite` 应用生成的 SQL):
+    ```bash
+    bun run db:migrate
+    ```
 
 ## 🗓️ 规划中的功能 (Roadmap)
 

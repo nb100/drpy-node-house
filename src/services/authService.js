@@ -1,31 +1,42 @@
-import db from '../db.js';
+import db, { orm } from '../db.js';
+import { users, settings, invites } from '../schema.js';
+import { eq, and, sql, lt, isNull, or } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { DEFAULT_SETTINGS } from '../config.js';
 import { getRank } from './pointsService.js';
 
 export async function initSuperAdmin() {
-  const stmt = db.prepare('SELECT count(*) as count FROM users');
-  const result = stmt.get();
+  // const stmt = db.prepare('SELECT count(*) as count FROM users');
+  // const result = stmt.get();
+  const result = await orm.select({ count: sql`count(*)` }).from(users).get();
 
   if (result.count === 0) {
     console.log('No users found. Creating default super admin...');
     const hashedPassword = await bcrypt.hash('admin123', 10);
     // role and status are set by default in DB schema, but we force them here to be safe
-    const insert = db.prepare("INSERT INTO users (username, password, role, status) VALUES (?, ?, 'admin', 'active')");
-    insert.run('admin', hashedPassword);
+    // const insert = db.prepare("INSERT INTO users (username, password, role, status) VALUES (?, ?, 'admin', 'active')");
+    // insert.run('admin', hashedPassword);
+    await orm.insert(users).values({
+      username: 'admin',
+      password: hashedPassword,
+      role: 'admin',
+      status: 'active'
+    }).run();
     console.log('Default admin created: admin / admin123');
   }
 }
 
 export async function getRegistrationPolicy() {
-  const stmt = db.prepare("SELECT value FROM settings WHERE key = 'registration_policy'");
-  const result = stmt.get();
+  // const stmt = db.prepare("SELECT value FROM settings WHERE key = 'registration_policy'");
+  // const result = stmt.get();
+  const result = await orm.select().from(settings).where(eq(settings.key, 'registration_policy')).get();
   return result ? result.value : DEFAULT_SETTINGS.registration_policy;
 }
 
 export async function getUploadConfig() {
-  const stmt = db.prepare("SELECT key, value FROM settings");
-  const results = stmt.all();
+  // const stmt = db.prepare("SELECT key, value FROM settings");
+  // const results = stmt.all();
+  const results = await orm.select().from(settings).all();
 
   const config = { ...DEFAULT_SETTINGS };
 
@@ -60,8 +71,9 @@ export async function registerUser(username, password, inviteCode = null, reason
   // Check IP limit (Anti-spam)
   if (ip) {
     // Get limit from settings or default
-    const settingsStmt = db.prepare("SELECT value FROM settings WHERE key = 'registration_ip_limit'");
-    const settingsResult = settingsStmt.get();
+    // const settingsStmt = db.prepare("SELECT value FROM settings WHERE key = 'registration_ip_limit'");
+    // const settingsResult = settingsStmt.get();
+    const settingsResult = await orm.select().from(settings).where(eq(settings.key, 'registration_ip_limit')).get();
     
     let limit = DEFAULT_SETTINGS.registration_ip_limit;
     if (settingsResult && !isNaN(parseInt(settingsResult.value, 10))) {
@@ -73,8 +85,12 @@ export async function registerUser(username, password, inviteCode = null, reason
         const window = 24 * 60 * 60; // 24 hours in seconds
         const timeThreshold = Math.floor(Date.now() / 1000) - window;
         
-        const countStmt = db.prepare('SELECT count(*) as count FROM users WHERE registration_ip = ? AND created_at > ?');
-        const result = countStmt.get(ip, timeThreshold);
+        // const countStmt = db.prepare('SELECT count(*) as count FROM users WHERE registration_ip = ? AND created_at > ?');
+        // const result = countStmt.get(ip, timeThreshold);
+        const result = await orm.select({ count: sql`count(*)` })
+            .from(users)
+            .where(and(eq(users.registrationIp, ip), sql`${users.createdAt} > ${timeThreshold}`))
+            .get();
         
         if (result.count >= limit) {
           throw new Error(`Registration limit exceeded. Max ${limit} accounts per 24 hours from this IP.`);
@@ -87,15 +103,25 @@ export async function registerUser(username, password, inviteCode = null, reason
     if (!inviteCode) {
       throw new Error('Invitation code is required');
     }
-    const inviteStmt = db.prepare('SELECT * FROM invites WHERE code = ? AND (max_uses = 0 OR used_count < max_uses) AND (expires_at IS NULL OR expires_at > ?)');
-    const invite = inviteStmt.get(inviteCode, Math.floor(Date.now() / 1000));
+    // const inviteStmt = db.prepare('SELECT * FROM invites WHERE code = ? AND (max_uses = 0 OR used_count < max_uses) AND (expires_at IS NULL OR expires_at > ?)');
+    // const invite = inviteStmt.get(inviteCode, Math.floor(Date.now() / 1000));
+    const now = Math.floor(Date.now() / 1000);
+    const invite = await orm.select().from(invites).where(and(
+        eq(invites.code, inviteCode),
+        or(eq(invites.maxUses, 0), sql`${invites.usedCount} < ${invites.maxUses}`),
+        or(isNull(invites.expiresAt), sql`${invites.expiresAt} > ${now}`)
+    )).get();
 
     if (!invite) {
       throw new Error('Invalid or expired invitation code');
     }
 
     // Increment used count
-    db.prepare('UPDATE invites SET used_count = used_count + 1 WHERE code = ?').run(inviteCode);
+    // db.prepare('UPDATE invites SET used_count = used_count + 1 WHERE code = ?').run(inviteCode);
+    await orm.update(invites)
+        .set({ usedCount: sql`${invites.usedCount} + 1` })
+        .where(eq(invites.code, inviteCode))
+        .run();
   }
 
   // 3. Determine Initial Status
@@ -107,22 +133,34 @@ export async function registerUser(username, password, inviteCode = null, reason
   }
 
   // 4. Check if user exists
-  const check = db.prepare('SELECT id FROM users WHERE username = ?');
-  if (check.get(username)) {
+  // const check = db.prepare('SELECT id FROM users WHERE username = ?');
+  // if (check.get(username)) {
+  const check = await orm.select({ id: users.id }).from(users).where(eq(users.username, username)).get();
+  if (check) {
     throw new Error('Username already exists');
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const stmt = db.prepare('INSERT INTO users (username, password, role, status, reason, registration_ip) VALUES (?, ?, ?, ?, ?, ?)');
+  // const stmt = db.prepare('INSERT INTO users (username, password, role, status, reason, registration_ip) VALUES (?, ?, ?, ?, ?, ?)');
 
   // Default role is 'user'
-  const info = stmt.run(username, hashedPassword, 'user', initialStatus, reason, ip);
-  return { id: info.lastInsertRowid, username, role: 'user', status: initialStatus };
+  // const info = stmt.run(username, hashedPassword, 'user', initialStatus, reason, ip);
+  const info = await orm.insert(users).values({
+      username,
+      password: hashedPassword,
+      role: 'user',
+      status: initialStatus,
+      reason,
+      registrationIp: ip
+  }).returning({ id: users.id }).get();
+
+  return { id: info.id, username, role: 'user', status: initialStatus };
 }
 
 export async function loginUser(username, password) {
-  const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-  const user = stmt.get(username);
+  // const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
+  // const user = stmt.get(username);
+  const user = await orm.select().from(users).where(eq(users.username, username)).get();
 
   if (!user || !(await bcrypt.compare(password, user.password))) {
     throw new Error('Invalid username or password');
@@ -141,8 +179,9 @@ export async function loginUser(username, password) {
 }
 
 export async function changePassword(userId, oldPassword, newPassword) {
-  const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-  const user = stmt.get(userId);
+  // const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
+  // const user = stmt.get(userId);
+  const user = await orm.select().from(users).where(eq(users.id, userId)).get();
 
   if (!user) {
     throw new Error('User not found');
@@ -153,15 +192,33 @@ export async function changePassword(userId, oldPassword, newPassword) {
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
-  const updateStmt = db.prepare('UPDATE users SET password = ? WHERE id = ?');
-  updateStmt.run(hashedPassword, userId);
+  // const updateStmt = db.prepare('UPDATE users SET password = ? WHERE id = ?');
+  // updateStmt.run(hashedPassword, userId);
+  await orm.update(users).set({ password: hashedPassword }).where(eq(users.id, userId)).run();
 
   return { success: true };
 }
 
 export async function getUserById(userId) {
-  const stmt = db.prepare('SELECT id, username, role, status, nickname, qq, email, phone, download_preference, notify_on_reply, notify_on_comment, show_scroll_buttons, points, last_checkin_date, created_at FROM users WHERE id = ?');
-  const user = stmt.get(userId);
+  // const stmt = db.prepare('SELECT id, username, role, status, nickname, qq, email, phone, download_preference, notify_on_reply, notify_on_comment, show_scroll_buttons, points, last_checkin_date, created_at FROM users WHERE id = ?');
+  // const user = stmt.get(userId);
+  const user = await orm.select({
+      id: users.id,
+      username: users.username,
+      role: users.role,
+      status: users.status,
+      nickname: users.nickname,
+      qq: users.qq,
+      email: users.email,
+      phone: users.phone,
+      download_preference: users.downloadPreference,
+      notify_on_reply: users.notifyOnReply,
+      notify_on_comment: users.notifyOnComment,
+      show_scroll_buttons: users.showScrollButtons,
+      points: users.points,
+      last_checkin_date: users.lastCheckinDate,
+      created_at: users.createdAt
+  }).from(users).where(eq(users.id, userId)).get();
   
   if (user) {
     const rank = getRank(user.points || 0);
@@ -178,8 +235,18 @@ export async function getUserById(userId) {
 }
 
 export async function getPublicUserProfile(userId) {
-  const stmt = db.prepare('SELECT id, username, nickname, role, status, created_at, points, qq FROM users WHERE id = ?');
-  const user = stmt.get(userId);
+  // const stmt = db.prepare('SELECT id, username, nickname, role, status, created_at, points, qq FROM users WHERE id = ?');
+  // const user = stmt.get(userId);
+  const user = await orm.select({
+      id: users.id,
+      username: users.username,
+      nickname: users.nickname,
+      role: users.role,
+      status: users.status,
+      created_at: users.createdAt,
+      points: users.points,
+      qq: users.qq
+  }).from(users).where(eq(users.id, userId)).get();
   
   if (user) {
     const rank = getRank(user.points || 0);
@@ -196,48 +263,68 @@ export async function updateUserProfile(userId, { nickname, qq, email, phone, do
 
   // Check nickname uniqueness if changed
   if (nickname) {
-    const check = db.prepare('SELECT id FROM users WHERE nickname = ? AND id != ?');
-    if (check.get(nickname, userId)) {
+    // const check = db.prepare('SELECT id FROM users WHERE nickname = ? AND id != ?');
+    // if (check.get(nickname, userId)) {
+    const check = await orm.select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.nickname, nickname), sql`${users.id} != ${userId}`))
+        .get();
+    if (check) {
       throw new Error('Nickname already exists');
     }
   }
 
-  const updates = [];
-  const params = [];
+  // const updates = [];
+  // const params = [];
+  const updateValues = {};
 
-  if (nickname !== undefined) { updates.push('nickname = ?'); params.push(nickname); }
-  if (qq !== undefined) { updates.push('qq = ?'); params.push(qq); }
-  if (email !== undefined) { updates.push('email = ?'); params.push(email); }
-  if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
-  if (download_preference !== undefined) { updates.push('download_preference = ?'); params.push(download_preference); }
-  if (notify_on_reply !== undefined) { updates.push('notify_on_reply = ?'); params.push(notify_on_reply); }
-  if (notify_on_comment !== undefined) { updates.push('notify_on_comment = ?'); params.push(notify_on_comment); }
-  if (show_scroll_buttons !== undefined) { updates.push('show_scroll_buttons = ?'); params.push(show_scroll_buttons); }
+  if (nickname !== undefined) updateValues.nickname = nickname;
+  if (qq !== undefined) updateValues.qq = qq;
+  if (email !== undefined) updateValues.email = email;
+  if (phone !== undefined) updateValues.phone = phone;
+  if (download_preference !== undefined) updateValues.downloadPreference = download_preference;
+  if (notify_on_reply !== undefined) updateValues.notifyOnReply = notify_on_reply;
+  if (notify_on_comment !== undefined) updateValues.notifyOnComment = notify_on_comment;
+  if (show_scroll_buttons !== undefined) updateValues.showScrollButtons = show_scroll_buttons;
 
-  console.log('[updateUserProfile] SQL Updates:', updates);
-  console.log('[updateUserProfile] SQL Params:', params);
+  // if (nickname !== undefined) { updates.push('nickname = ?'); params.push(nickname); }
+  // if (qq !== undefined) { updates.push('qq = ?'); params.push(qq); }
+  // if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+  // if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+  // if (download_preference !== undefined) { updates.push('download_preference = ?'); params.push(download_preference); }
+  // if (notify_on_reply !== undefined) { updates.push('notify_on_reply = ?'); params.push(notify_on_reply); }
+  // if (notify_on_comment !== undefined) { updates.push('notify_on_comment = ?'); params.push(notify_on_comment); }
+  // if (show_scroll_buttons !== undefined) { updates.push('show_scroll_buttons = ?'); params.push(show_scroll_buttons); }
 
-  if (updates.length > 0) {
-    params.push(userId);
-    const stmt = db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`);
-    const result = stmt.run(...params);
-    console.log('[updateUserProfile] DB Result:', result);
+  console.log('[updateUserProfile] ORM Updates:', updateValues);
+
+  // if (updates.length > 0) {
+  //   params.push(userId);
+  //   const stmt = db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`);
+  //   const result = stmt.run(...params);
+  //   console.log('[updateUserProfile] DB Result:', result);
+  // }
+  if (Object.keys(updateValues).length > 0) {
+      const result = await orm.update(users).set(updateValues).where(eq(users.id, userId)).run();
+      console.log('[updateUserProfile] ORM Result:', result);
   }
   
   return getUserById(userId);
 }
 
 export async function resetPassword(userId, newPassword) {
-  const stmt = db.prepare('SELECT id FROM users WHERE id = ?');
-  const user = stmt.get(userId);
+  // const stmt = db.prepare('SELECT id FROM users WHERE id = ?');
+  // const user = stmt.get(userId);
+  const user = await orm.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
 
   if (!user) {
     throw new Error('User not found');
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
-  const updateStmt = db.prepare('UPDATE users SET password = ? WHERE id = ?');
-  updateStmt.run(hashedPassword, userId);
+  // const updateStmt = db.prepare('UPDATE users SET password = ? WHERE id = ?');
+  // updateStmt.run(hashedPassword, userId);
+  await orm.update(users).set({ password: hashedPassword }).where(eq(users.id, userId)).run();
 
   return { success: true };
 }

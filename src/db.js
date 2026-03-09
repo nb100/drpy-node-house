@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import config, { DEFAULT_SETTINGS } from './config.js';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
+import * as schema from './schema.js';
 
 // Ensure data directory exists
 if (!fs.existsSync(config.paths.data)) {
@@ -15,7 +16,7 @@ const sqlite = new Database(dbPath);
 const db = sqlite; 
 
 // Export drizzle instance
-export const orm = drizzle(sqlite); 
+export const orm = drizzle(sqlite, { schema }); 
 
 export default db;
 db.run(`

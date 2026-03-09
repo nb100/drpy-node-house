@@ -16,6 +16,8 @@
     "pm2:logs": "pm2 logs drpysh",
     "reset-password": "bun scripts/manage_roles.js reset-password",
     "settings": "bun scripts/manage_settings.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun scripts/migrate.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
