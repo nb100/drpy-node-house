@@ -2,6 +2,7 @@ import { Database } from 'bun:sqlite';
 import path from 'path';
 import fs from 'fs';
 import config, { DEFAULT_SETTINGS } from './config.js';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
 
 // Ensure data directory exists
 if (!fs.existsSync(config.paths.data)) {
@@ -9,10 +10,14 @@ if (!fs.existsSync(config.paths.data)) {
 }
 
 const dbPath = path.join(config.paths.data, config.db.filename);
-const db = new Database(dbPath);
+const sqlite = new Database(dbPath);
+// Original db reference for backward compatibility
+const db = sqlite; 
 
-// Initialize tables
-// Users Table
+// Export drizzle instance
+export const orm = drizzle(sqlite); 
+
+export default db;
 db.run(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -257,5 +262,3 @@ for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
 }
 
 console.log(`Database connected at ${dbPath}`);
-
-export default db;
