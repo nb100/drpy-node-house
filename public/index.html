@@ -1088,7 +1088,7 @@
                         
                         <div v-else>
                             <div v-if="leaderboards[leaderboardTab] && leaderboards[leaderboardTab].length > 0">
-                                <div v-for="(user, index) in leaderboards[leaderboardTab]" :key="user.id" class="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl mb-2 hover:shadow-md transition-all">
+                                <div v-for="(lbUser, index) in leaderboards[leaderboardTab]" :key="lbUser.id" class="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl mb-2 hover:shadow-md transition-all">
                                     <div class="flex items-center gap-3 min-w-0">
                                          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center font-bold rounded-full shadow-sm" 
                                             :class="index === 0 ? 'bg-yellow-100 text-yellow-600 ring-2 ring-yellow-200' : 
@@ -1096,10 +1096,14 @@
                                                    index === 2 ? 'bg-orange-100 text-orange-600 ring-2 ring-orange-200' : 'bg-gray-50 text-gray-400'">
                                             {{ index + 1 }}
                                          </div>
+                                         <div @click.stop="openPublicProfile(lbUser)" class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm cursor-pointer hover:ring-2 hover:ring-opacity-50 transition-all"
+                                            :class="(user && lbUser.id === user.id) ? 'bg-green-500' : 'bg-blue-500'">
+                                            {{ (lbUser.nickname || lbUser.username || 'A')[0].toUpperCase() }}
+                                         </div>
                                          <div class="min-w-0">
                                             <div class="font-bold text-gray-800 truncate flex items-center gap-1">
-                                                {{ user.nickname || user.username }}
-                                                <span class="text-[10px] text-yellow-600 bg-yellow-50 border border-yellow-100 px-1 rounded font-normal flex-shrink-0" v-if="user.role">{{ t.userRole[user.role] || user.role }}</span>
+                                                {{ lbUser.nickname || lbUser.username }}
+                                                <span class="text-[10px] text-yellow-600 bg-yellow-50 border border-yellow-100 px-1 rounded font-normal flex-shrink-0" v-if="lbUser.role">{{ t.userRole[lbUser.role] || lbUser.role }}</span>
                                             </div>
                                          </div>
                                     </div>
@@ -1111,11 +1115,11 @@
                                             'text-green-600': leaderboardTab === 'comments',
                                             'text-orange-600': leaderboardTab === 'chat'
                                         }">
-                                        <span v-if="leaderboardTab === 'points'">{{ user.points }} {{ t.pts }}</span>
-                                        <span v-else-if="leaderboardTab === 'rank'">{{ user.rankTitle || (t.ranks && t.ranks[user.role]) || user.role }}</span>
-                                        <span v-else-if="leaderboardTab === 'topics'">{{ user.count }} {{ t.topicsUnit }}</span>
-                                        <span v-else-if="leaderboardTab === 'comments'">{{ user.count }} {{ t.commentsUnit }}</span>
-                                        <span v-else-if="leaderboardTab === 'chat'">{{ user.count }} {{ t.msgsUnit }}</span>
+                                        <span v-if="leaderboardTab === 'points'">{{ lbUser.points }} {{ t.pts }}</span>
+                                        <span v-else-if="leaderboardTab === 'rank'">{{ lbUser.rankTitle || (t.ranks && t.ranks[lbUser.role]) || lbUser.role }}</span>
+                                        <span v-else-if="leaderboardTab === 'topics'">{{ lbUser.count }} {{ t.topicsUnit }}</span>
+                                        <span v-else-if="leaderboardTab === 'comments'">{{ lbUser.count }} {{ t.commentsUnit }}</span>
+                                        <span v-else-if="leaderboardTab === 'chat'">{{ lbUser.count }} {{ t.msgsUnit }}</span>
                                     </div>
                                 </div>
                             </div>
