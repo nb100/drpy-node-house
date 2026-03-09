@@ -1917,7 +1917,7 @@ const app = createApp({
                   lang = 'dr2';
                } else if (tags.includes('catvod')) {
                   lang = 'catvod';
-               }else if (tags.includes('jx')) {
+               } else if (tags.includes('jx')) {
                    lang = 'jx';
                } else {
                   lang = 'ds';
@@ -1926,12 +1926,23 @@ const app = createApp({
                lang = 'php';
             } else if (ext === 'py') {
                lang = 'hipy';
+            } else {
+               // Fallback for other files
+               lang = ext;
             }
             
+            // Construct full URL with protocol and host, including hash for filename
             const fullUrl = window.location.origin + directUrl + '#' + file.filename;
+            
             // The template expects {{url}} to be replaced by the download link
             // And {{lang}} by the calculated lang
-            return template.replace('{{lang}}', lang).replace('{{url}}', fullUrl);
+            // Also support {{name}} for filename
+            let result = template
+                .replace('{{lang}}', lang)
+                .replace('{{url}}', fullUrl)
+                .replace('{{name}}', file.filename);
+
+            return result;
         };
 
         const isAppReady = ref(false);

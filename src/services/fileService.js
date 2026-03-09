@@ -137,6 +137,89 @@ export function getFile(cid, userId = null, userRole = 'user', fileId = null) {
       return files[0];
   }
 
+  // Priority 4: Check if referenced in topics/comments/chat (Access via reference)
+  if (userId) {
+      const refFile = files[0];
+      const cidString = cid; // cid is already string here
+
+      // Check 2: Is file linked in a purchased/free topic?
+      const topicsWithFile = db.prepare('SELECT id, user_id, view_permission_level, view_points_required FROM topics WHERE content LIKE ?').all(`%${cidString}%`);
+      
+      for (const topic of topicsWithFile) {
+          // Topic author
+          if (topic.user_id === userId) return refFile;
+          
+          // Free topic
+          if (topic.view_points_required <= 0 && topic.view_permission_level <= 0) return refFile;
+
+          let canView = true;
+
+          // Check Permission Level (Rank)
+          if (topic.view_permission_level > 0) {
+               const user = db.prepare('SELECT points FROM users WHERE id = ?').get(userId);
+               const userPoints = user ? user.points : 0;
+               const userRank = getRank(userPoints);
+               
+               if (userRank.level < topic.view_permission_level) {
+                   canView = false;
+               }
+          }
+
+          // Check Points Required (Purchase)
+          if (canView && topic.view_points_required > 0) {
+              const purchase = db.prepare('SELECT 1 FROM topic_purchases WHERE user_id = ? AND topic_id = ?').get(userId, topic.id);
+              if (!purchase) {
+                  canView = false;
+              }
+          }
+          
+          if (canView) return refFile;
+      }
+
+      // Check 3: Linked in comments?
+      const commentsWithFile = db.prepare('SELECT id, topic_id FROM comments WHERE content LIKE ?').all(`%${cidString}%`);
+      
+      for (const comment of commentsWithFile) {
+          // Get topic info to check permissions
+          const topic = db.prepare('SELECT id, user_id, view_permission_level, view_points_required FROM topics WHERE id = ?').get(comment.topic_id);
+          
+          if (!topic) continue;
+
+          // Topic author (can see everything in their topic)
+          if (topic.user_id === userId) return refFile;
+
+          // Free topic
+          if (topic.view_points_required <= 0 && topic.view_permission_level <= 0) return refFile;
+
+          let canView = true;
+
+          // Check Permission Level (Rank)
+          if (topic.view_permission_level > 0) {
+               const user = db.prepare('SELECT points FROM users WHERE id = ?').get(userId);
+               const userPoints = user ? user.points : 0;
+               const userRank = getRank(userPoints);
+               
+               if (userRank.level < topic.view_permission_level) {
+                   canView = false;
+               }
+          }
+
+          // Check Points Required (Purchase)
+          if (canView && topic.view_points_required > 0) {
+              const purchase = db.prepare('SELECT 1 FROM topic_purchases WHERE user_id = ? AND topic_id = ?').get(userId, topic.id);
+              if (!purchase) {
+                  canView = false;
+              }
+          }
+          
+          if (canView) return refFile;
+      }
+
+      // Check 4: Linked in chat?
+      const chatMessage = db.prepare('SELECT 1 FROM chat_messages WHERE content LIKE ? LIMIT 1').get(`%${cidString}%`);
+      if (chatMessage) return refFile;
+  }
+
   throw new Error('Unauthorized');
 }
 
@@ -338,7 +421,60 @@ export async function getFileStream(cidString, userOrId = null, fileId = null) {
           }
       }
 
-      // Check 3: Linked in chat?
+      // Check 3: Linked in comments?
+      if (!authorized && userId) {
+           const commentsWithFile = db.prepare('SELECT id, topic_id FROM comments WHERE content LIKE ?').all(`%${cidString}%`);
+           
+           for (const comment of commentsWithFile) {
+               // Get topic info to check permissions
+               const topic = db.prepare('SELECT id, user_id, view_permission_level, view_points_required FROM topics WHERE id = ?').get(comment.topic_id);
+               
+               if (!topic) continue;
+
+               // Topic author (can see everything in their topic)
+               if (topic.user_id === userId) {
+                   authorized = true;
+                   fileRecord = refFile;
+                   break;
+               }
+
+               // Free topic
+               if (topic.view_points_required <= 0 && topic.view_permission_level <= 0) {
+                   authorized = true;
+                   fileRecord = refFile;
+                   break;
+               }
+
+               let canView = true;
+
+               // Check Permission Level (Rank)
+               if (topic.view_permission_level > 0) {
+                    const user = db.prepare('SELECT points FROM users WHERE id = ?').get(userId);
+                    const userPoints = user ? user.points : 0;
+                    const userRank = getRank(userPoints);
+                    
+                    if (userRank.level < topic.view_permission_level) {
+                        canView = false;
+                    }
+               }
+
+               // Check Points Required (Purchase)
+               if (canView && topic.view_points_required > 0) {
+                   const purchase = db.prepare('SELECT 1 FROM topic_purchases WHERE user_id = ? AND topic_id = ?').get(userId, topic.id);
+                   if (!purchase) {
+                       canView = false;
+                   }
+               }
+               
+               if (canView) {
+                   authorized = true;
+                   fileRecord = refFile;
+                   break;
+               }
+           }
+      }
+
+      // Check 4: Linked in chat?
       if (!authorized && userId) {
           const chatMessage = db.prepare('SELECT 1 FROM chat_messages WHERE content LIKE ? LIMIT 1').get(`%${cidString}%`);
           if (chatMessage) {
